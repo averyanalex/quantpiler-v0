@@ -7,7 +7,10 @@ def new_qram(address_count: int, data_count: int, values):
     data = QuantumRegister(data_count)
     qc = QuantumCircuit(address, data)
 
+    key_i = 0
     for key in values:
+        key_i = key_i + 1
+
         if key > 2**address_count - 1:
             raise ValueError(
                 f"Key {key} larger than maximum ({2**address_count - 1})")
@@ -31,6 +34,7 @@ def new_qram(address_count: int, data_count: int, values):
             if not k[i]:
                 qc.x(address[i])
 
-        qc.barrier()
+        if key_i != len(values):
+            qc.barrier()
 
     return qc

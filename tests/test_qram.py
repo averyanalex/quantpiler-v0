@@ -24,11 +24,10 @@ def test_qram():
         for i in range(2):
             if k[i]:
                 qc.x(aqr[i])
-
         qc.barrier()
 
         qc.compose(ram, qubits=[0, 1, 2, 3, 4], inplace=True)
-
+        qc.barrier()
         qc.measure(dqr, rqr)
 
         print(qc.draw())
