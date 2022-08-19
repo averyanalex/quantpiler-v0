@@ -23,7 +23,7 @@ qc = compile(example_func, 4)
 qc.draw(output="mpl")
 ```
 
-![Compiled circuit](images/compiler.png)
+![Compiled circuit](https://raw.githubusercontent.com/averyanalex/quantpiler/397073274ea07ad9d3f85345cf15823ed79813f0/images/compiler.png)
 
 ### qRAM
 
@@ -36,4 +36,4 @@ qram = new_qram(2, 3, values)
 qram.draw(output="mpl")
 ```
 
-![qRAM circuit](images/qram.png)
+![qRAM circuit](https://raw.githubusercontent.com/averyanalex/quantpiler/397073274ea07ad9d3f85345cf15823ed79813f0/images/qram.png)
