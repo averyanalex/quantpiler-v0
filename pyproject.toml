@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "quantpiler"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["AveryanAlex <alex@averyan.ru>"]
 
