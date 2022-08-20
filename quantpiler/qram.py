@@ -3,9 +3,9 @@ from qiskit.circuit import QuantumCircuit
 
 
 def new_qram(address_count: int, data_count: int, values):
-    address = QuantumRegister(address_count)
-    data = QuantumRegister(data_count)
-    qc = QuantumCircuit(address, data)
+    address = QuantumRegister(address_count, name="addr")
+    data = QuantumRegister(data_count, name="data")
+    qc = QuantumCircuit(address, data, name="qram")
 
     key_i = 0
     for key in values:
