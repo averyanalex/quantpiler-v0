@@ -1,4 +1,4 @@
-from qiskit import QuantumRegister, ClassicalRegister
+from qiskit import QuantumRegister
 from qiskit.circuit import QuantumCircuit
 
 
