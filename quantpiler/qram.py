@@ -28,7 +28,7 @@ def new_qram(address_count: int, data_count: int, values):
 
         for i in range(data_count):
             if v[i]:
-                qc.mct(address, data[i])
+                qc.mcx(address, data[i])
 
         for i in range(address_count):
             if not k[i]:
