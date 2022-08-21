@@ -7,6 +7,8 @@ from typing import Union, List, Dict
 from qiskit import QuantumRegister
 from qiskit.circuit import QuantumCircuit
 
+from .utils import int_to_bits
+
 
 def new_qram(address_count: int, data_count: int, values: Union[Dict[int, int], List[int]]) -> QuantumCircuit:
     """
@@ -54,8 +56,8 @@ def new_qram(address_count: int, data_count: int, values: Union[Dict[int, int], 
             raise ValueError(
                 f"Value {values[key]} larger than maximum ({2**data_count - 1})")
 
-        k = [(key >> bit) & 1 for bit in range(address_count - 1, -1, -1)]
-        v = [(values[key] >> bit) & 1 for bit in range(data_count - 1, -1, -1)]
+        k = int_to_bits(key, address_count)
+        v = int_to_bits(values[key], data_count)
 
         for i in range(address_count):
             if not k[i]:
