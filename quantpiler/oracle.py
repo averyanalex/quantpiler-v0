@@ -4,16 +4,16 @@ from qiskit.circuit import QuantumCircuit
 
 def new_oracle_checker(expected_data: [bool]):
     data = QuantumRegister(len(expected_data), name="data")
-    anc = AncillaRegister(1)
     result = QuantumRegister(1, name="result")
-    qc = QuantumCircuit(data, result, anc, name="oracle_checker")
+    qc = QuantumCircuit(data, result, name="oracle_checker")
 
     for i in range(len(expected_data)):
         if not expected_data[i]:
             qc.x(data[i])
 
-    qc.mcx(data, anc)
-    qc.cz(anc, result)
+    qc.h(result)
+    qc.mcx(data, result)
+    qc.h(result)
 
     for i in range(len(expected_data)):
         if not expected_data[i]:
