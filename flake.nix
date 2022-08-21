@@ -4,7 +4,11 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs";
-    poetry2nix.url = "github:nix-community/poetry2nix";
+    poetry2nix = {
+      url = "github:nix-community/poetry2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, poetry2nix }:
@@ -20,7 +24,7 @@
           preferWheels = true;
           python = pkgs.python310;
           editablePackageSources = {
-          	quantpiler = ./quantpiler;
+            quantpiler = ./quantpiler;
           };
         };
       in

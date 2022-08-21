@@ -1,3 +1,9 @@
+"""
+Python -> quantum circuit compiler.
+"""
+
+from typing import Callable
+
 import dis
 
 from qiskit.circuit.quantumregister import Qubit, AncillaQubit
@@ -5,7 +11,17 @@ from qiskit import QuantumRegister, AncillaRegister
 from qiskit.circuit import QuantumCircuit
 
 
-def compile(func, ancillas_count: int):
+def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
+    """Compile python function to qiskit circuit.
+
+    Args:
+        func (Callable): Function to compile
+        ancillas_count (int): Number of needed ancilla qubits
+
+    Returns:
+        QuantumCircuit: Compiled circuit
+    """
+
     input_qubits = {}
     tmp_qubits = {}
     all_qubits = {}
@@ -212,7 +228,7 @@ def compile(func, ancillas_count: int):
                 ancillas.append(a1)
             ancillas.append(a2)
 
-    stack: [QueuedOp] = []
+    stack: list[QueuedOp] = []
 
     bc = dis.Bytecode(func)
     for inst in bc:
