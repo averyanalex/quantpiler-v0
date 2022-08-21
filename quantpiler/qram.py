@@ -7,6 +7,12 @@ def new_qram(address_count: int, data_count: int, values):
     data = QuantumRegister(data_count, name="data")
     qc = QuantumCircuit(address, data, name="qram")
 
+    if type(values) is list:
+        values_dict = {}
+        for i in range(len(values)):
+            values_dict[i] = values[i]
+        values = values_dict
+
     key_i = 0
     for key in values:
         key_i = key_i + 1
