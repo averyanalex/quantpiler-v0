@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/averyanalex/quantpiler.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Publish status](https://github.com/averyanalex/quantpiler/actions/workflows/publish.yml/badge.svg)](https://github.com/averyanalex/quantpiler/actions/workflows/publish.yml)
+[![Release](https://github.com/averyanalex/quantpiler/actions/workflows/release.yml/badge.svg)](https://github.com/averyanalex/quantpiler/releases)
 [![Version](https://img.shields.io/pypi/v/quantpiler.svg)](https://pypi.org/project/quantpiler/)
 [![Docs](https://img.shields.io/readthedocs/quantpiler.svg)](https://quantpiler.readthedocs.io/en/latest/)
 

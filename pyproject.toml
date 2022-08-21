@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "quantpiler"
-version = "0.1.5"
+version = "0.1.6"
 description = "Quantum compiler and common circuits generator"
 license = "Apache-2.0"
 authors = ["AveryanAlex <alex@averyan.ru>"]
