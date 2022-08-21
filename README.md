@@ -5,7 +5,8 @@
 
 # Quantpiler
 
-This library can generate some common circuits and compile python functions to circuits
+This library was created to simplify the development of complex quantum algorithms by
+auto-generating common circuits and compiling python functions.
 
 ## Examples:
 

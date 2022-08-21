@@ -1,11 +1,13 @@
 [tool.poetry]
 name = "quantpiler"
 version = "0.1.6"
-description = "Quantum compiler and common circuits generator"
+description = "Quantum compiler and common circuits library"
 license = "Apache-2.0"
 authors = ["AveryanAlex <alex@averyan.ru>"]
 readme = "README.md"
+homepage = "https://github.com/averyanalex/quantpiler"
 repository = "https://github.com/averyanalex/quantpiler"
+documentation = "https://quantpiler.readthedocs.io/en/latest/"
 keywords = ["qiskit", "quantum"]
 classifiers = [
     "Development Status :: 1 - Planning",
