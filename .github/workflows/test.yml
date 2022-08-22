@@ -48,7 +48,7 @@ jobs:
         run: poetry run pytest -n 2 --cov-report xml --cov .
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
 
       - name: Run linter
         run: poetry run black . --check
