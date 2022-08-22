@@ -1,5 +1,5 @@
 """
-Utilites for internal usage
+Some useful utils.
 """
 
 from typing import List, Union

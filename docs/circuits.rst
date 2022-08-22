@@ -1,5 +1,5 @@
-Common circuits library
-=======================
+Circuits library
+================
 
 .. toctree::
    :maxdepth: 1
