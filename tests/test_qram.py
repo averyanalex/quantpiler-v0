@@ -2,9 +2,8 @@ from quantpiler import qram
 
 from qiskit import QuantumRegister, ClassicalRegister
 from qiskit.circuit import QuantumCircuit
-from qiskit import BasicAer, execute
 
-qasm_sim = BasicAer.get_backend("qasm_simulator")
+from quantpiler.utils import int_to_bits, execute_qc_once
 
 
 def check_qram(qram, addr, data):
@@ -14,8 +13,8 @@ def check_qram(qram, addr, data):
 
     qc = QuantumCircuit(aqr, dqr, rqr)
 
-    k = [(addr >> bit) & 1 for bit in range(2 - 1, -1, -1)]
-    v = [(data >> bit) & 1 for bit in range(3 - 1, -1, -1)]
+    k = int_to_bits(addr, 2)
+    v = int_to_bits(data, 3)
 
     for i in range(2):
         if k[i]:
@@ -28,9 +27,7 @@ def check_qram(qram, addr, data):
 
     print(qc.draw())
 
-    results = execute(qc, backend=qasm_sim, shots=1).result()
-    answer = results.get_counts()
-    bits = list(answer.keys())[0]
+    bits = execute_qc_once(qc, measure=False)
 
     v_str = ""
     for v_b in v:
