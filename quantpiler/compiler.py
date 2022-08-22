@@ -1,8 +1,8 @@
 """
-Python -> quantum circuit compiler.
+Python -> QuantumCircuit compiler.
 """
 
-from typing import Callable
+from typing import Callable, List
 
 import dis
 
@@ -15,11 +15,14 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
     """Compile python function to qiskit circuit.
 
     Args:
-        func (Callable): Function to compile
-        ancillas_count (int): Number of needed ancilla qubits
+        func (Callable): Function to compile.
+        ancillas_count (int): Number of needed ancilla qubits.
+
+    Raises:
+        NotImplementedError: Some of required operations not supported yet.
 
     Returns:
-        QuantumCircuit: Compiled circuit
+        QuantumCircuit: Compiled circuit.
     """
 
     input_qubits = {}
@@ -47,17 +50,11 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
 
     ancilla_qr = AncillaRegister(bits=ancillas)
 
-    qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name="test")
+    qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name=func.__name__)
 
     class QueuedOp:
-        def __init__(self):
-            pass
-
         def isQubit(self) -> bool:
             return False
-
-        def execute(self, target: Qubit):
-            print("Oh no execute not working!!!")
 
     class QueuedQubit(QueuedOp):
         value: Qubit
@@ -228,7 +225,7 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
                 ancillas.append(a1)
             ancillas.append(a2)
 
-    stack: list[QueuedOp] = []
+    stack: List[QueuedOp] = []
 
     bc = dis.Bytecode(func)
     for inst in bc:
@@ -272,12 +269,14 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
                 b = stack.pop()
                 stack.append(QueuedEqual(a, b))
             else:
-                print(f"{inst.argval} unsupported")
+                raise NotImplementedError(
+                    f"{inst.argval} comparison not implemented yet"
+                )
 
         elif opname == "RETURN_VALUE":
             pass
 
         else:
-            print(f"Operation {inst} unsupported")
+            raise NotImplementedError(f"Operation {inst.opname} not implemented yet")
 
     return qc

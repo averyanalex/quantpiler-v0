@@ -1,5 +1,5 @@
 """
-Quantum-RAM circuit generator.
+Quantum RAM circuit generator.
 """
 
 from typing import Union, List, Dict
@@ -13,29 +13,19 @@ from .utils import int_to_bits
 def new_qram(
     address_count: int, data_count: int, values: Union[Dict[int, int], List[int]]
 ) -> QuantumCircuit:
+    """Generate qRAM circuit.
+
+    Args:
+        address_count (int): Number of address qubits.
+        data_count (int): Number of data qubits.
+        values (Union[Dict[int, int], List[int]]): Saved qRAM data.
+
+    Raises:
+        ValueError: Some address/data in values is larger than maximum for address/data qubits count.
+
+    Returns:
+        QuantumCircuit: The newly generated qRAM circuit.
     """
-    Generate qRAM circuit.
-
-    Parameters
-    ----------
-    address_count : int
-        Number of address qubits
-    data_count : int
-        Number of data qubits
-    values : Union[Dict[int, int], List[int]]
-        Saved qRAM data
-
-    Returns
-    -------
-    QuantumCircuit
-        The newly generated qRAM circuit
-
-    Raises
-    ------
-    ValueError
-        Some address/data in values is larger than maximum for address/data qubits count
-    """
-
     address = QuantumRegister(address_count, name="addr")
     data = QuantumRegister(data_count, name="data")
     qc = QuantumCircuit(address, data, name="qram")
@@ -58,8 +48,8 @@ def new_qram(
                 f"Value {values[key]} larger than maximum ({2**data_count - 1})"
             )
 
-        k = int_to_bits(key, address_count)
-        v = int_to_bits(values[key], data_count)
+        k = int_to_bits(key, bits=address_count)
+        v = int_to_bits(values[key], bits=data_count)
 
         for i in range(address_count):
             if not k[i]:
