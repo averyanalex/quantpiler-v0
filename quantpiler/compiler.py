@@ -10,6 +10,17 @@ from qiskit.circuit.quantumregister import Qubit, AncillaQubit
 from qiskit import QuantumRegister, AncillaRegister
 from qiskit.circuit import QuantumCircuit
 
+from .qops import (
+    QueuedAnd,
+    QueuedBool,
+    QueuedEqual,
+    QueuedNot,
+    QueuedNotEqual,
+    QueuedOp,
+    QueuedOr,
+    QueuedQubit,
+)
+
 
 def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
     """Compile python function to qiskit circuit.
@@ -44,186 +55,13 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
     input_qr = QuantumRegister(bits=list(input_qubits.values()))
     tmp_qr = QuantumRegister(bits=list(tmp_qubits.values()))
 
-    ancillas: [Qubit] = []
+    anc: [AncillaQubit] = []
     for i in range(ancillas_count):
-        ancillas.append(AncillaQubit())
+        anc.append(AncillaQubit())
 
-    ancilla_qr = AncillaRegister(bits=ancillas)
+    ancilla_qr = AncillaRegister(bits=anc)
 
     qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name=func.__name__)
-
-    class QueuedOp:
-        def isQubit(self) -> bool:
-            return False
-
-    class QueuedQubit(QueuedOp):
-        value: Qubit
-
-        def __init__(self, value: Qubit):
-            self.value = value
-
-        def isQubit(self) -> bool:
-            return True
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.value}")
-            qc.reset(target)
-            qc.cx(self.value, target)
-
-    class QueuedBool(QueuedOp):
-        value: bool
-
-        def __init__(self, value: bool):
-            self.value = value
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.value}")
-            qc.reset(target)
-            if self.value:
-                qc.x(target)
-
-    class QueuedNot(QueuedOp):
-        a: QueuedOp
-
-        def __init__(self, a: QueuedOp):
-            self.a = a
-
-        def execute(self, target: Qubit):
-            print(f"{target} = not {self.a}")
-
-            if a.isQubit():
-                a1 = self.a.value
-            else:
-                a1 = ancillas.pop()
-                self.a.execute(a1)
-
-            qc.reset(target)
-            qc.x(target)
-
-            qc.cx(a1, target)
-
-            if not a.isQubit():
-                ancillas.append(a1)
-
-    class QueuedOr(QueuedOp):
-        a: QueuedOp
-        b: QueuedOp
-
-        def __init__(self, a: QueuedOp, b: QueuedOp):
-            self.a = a
-            self.b = b
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.a} | {self.b}")
-
-            if a.isQubit():
-                a1 = self.a.value
-            else:
-                a1 = ancillas.pop()
-                self.a.execute(a1)
-
-            if b.isQubit():
-                a2 = self.b.value
-            else:
-                a2 = ancillas.pop()
-                self.b.execute(a2)
-
-            qc.reset(target)
-
-            qc.cx(a1, target)
-            qc.cx(a2, target)
-            qc.ccx(a1, a2, target)
-
-            if not a.isQubit():
-                ancillas.append(a1)
-            if not b.isQubit():
-                ancillas.append(a2)
-
-    class QueuedAnd(QueuedOp):
-        a: QueuedOp
-        b: QueuedOp
-
-        def __init__(self, a: QueuedOp, b: QueuedOp):
-            self.a = a
-            self.b = b
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.a} & {self.b}")
-
-            if a.isQubit():
-                a1 = self.a.value
-            else:
-                a1 = ancillas.pop()
-                self.a.execute(a1)
-
-            if b.isQubit():
-                a2 = self.b.value
-            else:
-                a2 = ancillas.pop()
-                self.b.execute(a2)
-
-            qc.reset(target)
-
-            qc.ccx(a1, a2, target)
-
-            if not a.isQubit():
-                ancillas.append(a1)
-            if not b.isQubit():
-                ancillas.append(a2)
-
-    class QueuedNotEqual(QueuedOp):
-        a: QueuedOp
-        b: QueuedOp
-
-        def __init__(self, a: QueuedOp, b: QueuedOp):
-            self.a = a
-            self.b = b
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.a} != {self.b}")
-
-            if a.isQubit():
-                a1 = self.a.value
-            else:
-                a1 = ancillas.pop()
-                self.a.execute(a1)
-
-            self.b.execute(target)
-
-            qc.cx(a1, target)
-
-            if not a.isQubit():
-                ancillas.append(a1)
-
-    class QueuedEqual(QueuedOp):
-        a: QueuedOp
-        b: QueuedOp
-
-        def __init__(self, a: QueuedOp, b: QueuedOp):
-            self.a = a
-            self.b = b
-
-        def execute(self, target: Qubit):
-            print(f"{target} = {self.a} == {self.b}")
-
-            if a.isQubit():
-                a1 = self.a.value
-            else:
-                a1 = ancillas.pop()
-                self.a.execute(a1)
-
-            a2 = ancillas.pop()
-            qc.reset(a2)
-            qc.x(a2)
-
-            self.b.execute(target)
-
-            qc.cx(a1, target)
-            qc.cx(a2, target)
-
-            if not a.isQubit():
-                ancillas.append(a1)
-            ancillas.append(a2)
 
     stack: List[QueuedOp] = []
 
@@ -233,11 +71,11 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
 
         if opname == "LOAD_FAST":
             target = all_qubits[inst.argval]
-            stack.append(QueuedQubit(target))
+            stack.append(QueuedQubit(qc, anc, target))
 
         elif opname == "LOAD_CONST":
             const = inst.argval
-            stack.append(QueuedBool(const))
+            stack.append(QueuedBool(qc, anc, const))
 
         elif opname == "STORE_FAST":
             op = stack.pop()
@@ -247,27 +85,27 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
         elif opname == "BINARY_OR":
             a = stack.pop()
             b = stack.pop()
-            stack.append(QueuedOr(a, b))
+            stack.append(QueuedOr(qc, anc, a, b))
 
         elif opname == "UNARY_NOT":
             a = stack.pop()
-            stack.append(QueuedNot(a))
+            stack.append(QueuedNot(qc, anc, a))
 
         elif opname == "BINARY_AND":
             a = stack.pop()
             b = stack.pop()
-            stack.append(QueuedAnd(a, b))
+            stack.append(QueuedAnd(qc, anc, a, b))
 
         elif opname == "COMPARE_OP":
             optype = inst.argval
             if optype == "!=":
                 a = stack.pop()
                 b = stack.pop()
-                stack.append(QueuedNotEqual(a, b))
+                stack.append(QueuedNotEqual(qc, anc, a, b))
             elif optype == "==":
                 a = stack.pop()
                 b = stack.pop()
-                stack.append(QueuedEqual(a, b))
+                stack.append(QueuedEqual(qc, anc, a, b))
             else:
                 raise NotImplementedError(
                     f"{inst.argval} comparison not implemented yet"
