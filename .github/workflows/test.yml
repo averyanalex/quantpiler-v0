@@ -51,6 +51,8 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
+        if: matrix.os == 'ubuntu-22.04' && matrix.python == '3.10'
 
       - name: Run linter
         run: poetry run black . --check
+        if: matrix.os == 'ubuntu-22.04' && matrix.python == '3.10'
