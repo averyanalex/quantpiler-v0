@@ -31,6 +31,7 @@
       {
         devShells.default = poetryEnv.env.overrideAttrs (oldAttrs: {
           buildInputs = with pkgs; [
+            pandoc
             python310Packages.poetry
           ];
         });

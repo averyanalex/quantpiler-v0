@@ -19,8 +19,10 @@ release = version
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "nbsphinx",
 ]
 
+nbsphinx_execute = "never"
 autodoc_mock_imports = ["qiskit"]
 
 templates_path = ["_templates"]

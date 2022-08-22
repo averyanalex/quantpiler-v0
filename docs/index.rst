@@ -10,6 +10,7 @@ auto-generating common circuits and compiling python functions.
 
    circuits
    compiler
+   examples/index
 
 
 Indices and tables
