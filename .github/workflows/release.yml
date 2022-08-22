@@ -27,13 +27,13 @@ jobs:
         run: poetry build
 
       - name: Source distribution artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sdist
           path: dist/quantpiler-*.tar.gz
 
       - name: Wheel distribution artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wheel
           path: dist/quantpiler-*-py3-none-any.whl
