@@ -1,19 +1,6 @@
 from quantpiler import compiler
 
-from qiskit import BasicAer, execute
-
-qasm_sim = BasicAer.get_backend("qasm_simulator")
-
-
-def compile_execute(func, ancillas):
-    qc = compiler.compile(func, ancillas)
-    qc.measure_all()
-    results = execute(qc, backend=qasm_sim, shots=1).result()
-
-    answer = results.get_counts()
-    bits = list(answer.keys())[0]
-
-    return bits
+from quantpiler.utils import execute_qc_once
 
 
 def test_or():
@@ -21,7 +8,8 @@ def test_or():
         a = True
         c = a | b
 
-    bits = compile_execute(or_func, 0)
+    qc = compiler.compile(or_func, 0)
+    bits = execute_qc_once(qc)
     assert bits == "101"
 
 
@@ -35,5 +23,6 @@ def test_complex():
         d = (c != False) & b == True
         b = a | d
 
-    bits = compile_execute(complex_func, 5)
+    qc = compiler.compile(complex_func, 5)
+    bits = execute_qc_once(qc)
     assert bits[-4:] == "1111"
