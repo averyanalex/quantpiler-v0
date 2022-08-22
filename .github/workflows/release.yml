@@ -44,7 +44,7 @@ jobs:
       - name: Publish to PyPI
         run: poetry publish
 
-      - name: Make a GitHub Release
+      - name: Make a GitHub release
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*

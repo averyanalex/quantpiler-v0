@@ -16,7 +16,7 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
-    "Topic :: Scientific/Engineering"
+    "Topic :: Scientific/Engineering",
 ]
 
 [tool.poetry.dependencies]
@@ -25,9 +25,10 @@ qiskit = "^0.37.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1"
-autopep8 = "^1.7.0"
-sphinx = "^5.1.1"
-furo = "^2022.06.21"
+pytest-cov = "^3.0.0"
+pytest-xdist = "^2.5.0"
+black = "^22.6.0"
+coverage = "^6.4.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

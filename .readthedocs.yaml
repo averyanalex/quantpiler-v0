@@ -2,10 +2,6 @@ version: 2
 
 build:
   os: ubuntu-20.04
-  apt_packages:
-    - gfortran
-    - libopenblas-dev
-    - liblapack-dev
   tools:
     python: "3.10"
   jobs:
@@ -13,9 +9,11 @@ build:
       - asdf plugin add poetry
       - asdf install poetry latest
       - asdf global poetry latest
-      - poetry config virtualenvs.create false
-    post_install:
-      - poetry install
+      - cd docs && poetry export --dev -f requirements.txt > requirements.txt && cd ..
+
+python:
+  install:
+    - requirements: docs/requirements.txt
 
 sphinx:
-   configuration: docs/conf.py
+  configuration: docs/conf.py

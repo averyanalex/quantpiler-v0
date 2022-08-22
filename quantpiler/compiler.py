@@ -47,7 +47,7 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
 
     ancilla_qr = AncillaRegister(bits=ancillas)
 
-    qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name='test')
+    qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name="test")
 
     class QueuedOp:
         def __init__(self):
@@ -234,47 +234,47 @@ def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
     for inst in bc:
         opname = inst.opname
 
-        if opname == 'LOAD_FAST':
+        if opname == "LOAD_FAST":
             target = all_qubits[inst.argval]
             stack.append(QueuedQubit(target))
 
-        elif opname == 'LOAD_CONST':
+        elif opname == "LOAD_CONST":
             const = inst.argval
             stack.append(QueuedBool(const))
 
-        elif opname == 'STORE_FAST':
+        elif opname == "STORE_FAST":
             op = stack.pop()
             target = all_qubits[inst.argval]
             op.execute(target)
 
-        elif opname == 'BINARY_OR':
+        elif opname == "BINARY_OR":
             a = stack.pop()
             b = stack.pop()
             stack.append(QueuedOr(a, b))
 
-        elif opname == 'UNARY_NOT':
+        elif opname == "UNARY_NOT":
             a = stack.pop()
             stack.append(QueuedNot(a))
 
-        elif opname == 'BINARY_AND':
+        elif opname == "BINARY_AND":
             a = stack.pop()
             b = stack.pop()
             stack.append(QueuedAnd(a, b))
 
-        elif opname == 'COMPARE_OP':
+        elif opname == "COMPARE_OP":
             optype = inst.argval
-            if optype == '!=':
+            if optype == "!=":
                 a = stack.pop()
                 b = stack.pop()
                 stack.append(QueuedNotEqual(a, b))
-            elif optype == '==':
+            elif optype == "==":
                 a = stack.pop()
                 b = stack.pop()
                 stack.append(QueuedEqual(a, b))
             else:
                 print(f"{inst.argval} unsupported")
 
-        elif opname == 'RETURN_VALUE':
+        elif opname == "RETURN_VALUE":
             pass
 
         else:

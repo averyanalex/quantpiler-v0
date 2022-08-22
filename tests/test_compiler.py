@@ -1,7 +1,8 @@
 from quantpiler import compiler
 
 from qiskit import BasicAer, execute
-qasm_sim = BasicAer.get_backend('qasm_simulator')
+
+qasm_sim = BasicAer.get_backend("qasm_simulator")
 
 
 def compile_execute(func, ancillas):
@@ -21,7 +22,7 @@ def test_or():
         c = a | b
 
     bits = compile_execute(or_func, 0)
-    assert bits == '101'
+    assert bits == "101"
 
 
 def test_complex():
@@ -35,4 +36,4 @@ def test_complex():
         b = a | d
 
     bits = compile_execute(complex_func, 5)
-    assert bits[-4:] == '1111'
+    assert bits[-4:] == "1111"

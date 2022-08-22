@@ -1,5 +1,5 @@
 {
-  description = "Quantum compiler and common circuits generator";
+  description = "Quantum compiler and common circuits library";
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";

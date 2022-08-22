@@ -4,7 +4,7 @@ from qiskit import QuantumRegister, ClassicalRegister
 from qiskit.circuit import QuantumCircuit
 from qiskit import BasicAer, execute
 
-qasm_sim = BasicAer.get_backend('qasm_simulator')
+qasm_sim = BasicAer.get_backend("qasm_simulator")
 
 
 def check_qram(qram, addr, data):
@@ -32,7 +32,7 @@ def check_qram(qram, addr, data):
     answer = results.get_counts()
     bits = list(answer.keys())[0]
 
-    v_str = ''
+    v_str = ""
     for v_b in v:
         v_str = v_str + str(v_b)
 

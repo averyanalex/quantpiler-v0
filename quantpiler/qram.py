@@ -10,7 +10,9 @@ from qiskit.circuit import QuantumCircuit
 from .utils import int_to_bits
 
 
-def new_qram(address_count: int, data_count: int, values: Union[Dict[int, int], List[int]]) -> QuantumCircuit:
+def new_qram(
+    address_count: int, data_count: int, values: Union[Dict[int, int], List[int]]
+) -> QuantumCircuit:
     """
     Generate qRAM circuit.
 
@@ -49,12 +51,12 @@ def new_qram(address_count: int, data_count: int, values: Union[Dict[int, int], 
         key_i = key_i + 1
 
         if key > 2**address_count - 1:
-            raise ValueError(
-                f"Key {key} larger than maximum ({2**address_count - 1})")
+            raise ValueError(f"Key {key} larger than maximum ({2**address_count - 1})")
 
         if key > 2**address_count - 1:
             raise ValueError(
-                f"Value {values[key]} larger than maximum ({2**data_count - 1})")
+                f"Value {values[key]} larger than maximum ({2**data_count - 1})"
+            )
 
         k = int_to_bits(key, address_count)
         v = int_to_bits(values[key], data_count)

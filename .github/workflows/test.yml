@@ -1,0 +1,51 @@
+name: Test ✅
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Run tests and linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Setup poetry
+        uses: abatilo/actions-poetry@v2.0.0
+        with:
+          poetry-version: "1.1"
+
+      - name: Cache poetry virtualenv
+        uses: actions/cache@v1
+        id: poetry-cache
+        with:
+          path: ~/.virtualenvs
+          key: poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Set poetry config
+        run: |
+          poetry config experimental.new-installer false
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.path ~/.virtualenvs
+
+      - name: Install libs for scipy
+        run: sudo apt-get install gfortran libopenblas-dev liblapack-dev
+
+      - name: Install dependencies
+        run: poetry install
+        if: steps.poetry-cache.outputs.cache-hit != 'true'
+
+      - name: Code quality
+        run: poetry run black . --check
+
+      - name: Test with pytest
+        run: poetry run pytest --cov . -n 2
