@@ -8,7 +8,7 @@ class QueuedOp:
     qc: QuantumCircuit
     anc: List[AncillaQubit]
 
-    def isQubit(self) -> bool:
+    def is_qubit(self) -> bool:
         return False
 
 
@@ -20,7 +20,7 @@ class QueuedQubit(QueuedOp):
         self.anc = anc
         self.value = value
 
-    def isQubit(self) -> bool:
+    def is_qubit(self) -> bool:
         return True
 
     def execute(self, target: Qubit):
@@ -55,7 +55,7 @@ class QueuedNot(QueuedOp):
     def execute(self, target: Qubit):
         print(f"{target} = not {self.a}")
 
-        if self.a.isQubit():
+        if self.a.is_qubit():
             a1 = self.a.value
         else:
             a1 = self.anc.pop()
@@ -66,7 +66,7 @@ class QueuedNot(QueuedOp):
 
         self.qc.cx(a1, target)
 
-        if not self.a.isQubit():
+        if not self.a.is_qubit():
             self.anc.append(a1)
 
 
@@ -85,13 +85,13 @@ class QueuedOr(QueuedOp):
     def execute(self, target: Qubit):
         print(f"{target} = {self.a} | {self.b}")
 
-        if self.a.isQubit():
+        if self.a.is_qubit():
             a1 = self.a.value
         else:
             a1 = self.anc.pop()
             self.a.execute(a1)
 
-        if self.b.isQubit():
+        if self.b.is_qubit():
             a2 = self.b.value
         else:
             a2 = self.anc.pop()
@@ -103,9 +103,9 @@ class QueuedOr(QueuedOp):
         self.qc.cx(a2, target)
         self.qc.ccx(a1, a2, target)
 
-        if not self.a.isQubit():
+        if not self.a.is_qubit():
             self.anc.append(a1)
-        if not self.b.isQubit():
+        if not self.b.is_qubit():
             self.anc.append(a2)
 
 
@@ -124,13 +124,13 @@ class QueuedAnd(QueuedOp):
     def execute(self, target: Qubit):
         print(f"{target} = {self.a} & {self.b}")
 
-        if self.a.isQubit():
+        if self.a.is_qubit():
             a1 = self.a.value
         else:
             a1 = self.anc.pop()
             self.a.execute(a1)
 
-        if self.b.isQubit():
+        if self.b.is_qubit():
             a2 = self.b.value
         else:
             a2 = self.anc.pop()
@@ -140,9 +140,9 @@ class QueuedAnd(QueuedOp):
 
         self.qc.ccx(a1, a2, target)
 
-        if not self.a.isQubit():
+        if not self.a.is_qubit():
             self.anc.append(a1)
-        if not self.b.isQubit():
+        if not self.b.is_qubit():
             self.anc.append(a2)
 
 
@@ -161,7 +161,7 @@ class QueuedNotEqual(QueuedOp):
     def execute(self, target: Qubit):
         print(f"{target} = {self.a} != {self.b}")
 
-        if self.a.isQubit():
+        if self.a.is_qubit():
             a1 = self.a.value
         else:
             a1 = self.anc.pop()
@@ -171,7 +171,7 @@ class QueuedNotEqual(QueuedOp):
 
         self.qc.cx(a1, target)
 
-        if not self.a.isQubit():
+        if not self.a.is_qubit():
             self.anc.append(a1)
 
 
@@ -190,7 +190,7 @@ class QueuedEqual(QueuedOp):
     def execute(self, target: Qubit):
         print(f"{target} = {self.a} == {self.b}")
 
-        if self.a.isQubit():
+        if self.a.is_qubit():
             a1 = self.a.value
         else:
             a1 = self.anc.pop()
@@ -205,6 +205,6 @@ class QueuedEqual(QueuedOp):
         self.qc.cx(a1, target)
         self.qc.cx(a2, target)
 
-        if not self.a.isQubit():
+        if not self.a.is_qubit():
             self.anc.append(a1)
         self.anc.append(a2)
