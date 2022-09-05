@@ -10,7 +10,7 @@ python = "^3.10"
 sphinx = "^5.1.1"
 furo = "^2022.06.21"
 nbsphinx = "^0.8.9"
-ipykernel = "^6.15.1"
+ipykernel = "^6.15.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
