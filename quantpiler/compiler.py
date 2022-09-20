@@ -18,7 +18,7 @@ from .qops import (
     QueuedNotEqual,
     QueuedOp,
     QueuedOr,
-    QueuedQubit,
+    QueuedRegister,
 )
 
 
@@ -36,9 +36,9 @@ def assemble(func: Callable, ancillas_count: int) -> QuantumCircuit:
         QuantumCircuit: Compiled circuit.
     """
 
-    input_qubits = {}
-    tmp_qubits = {}
-    all_qubits = {}
+    input_vars = {}
+    tmp_vars = {}
+    all_vars = {}
 
     input_args_count = func.__code__.co_argcount
     varnames = func.__code__.co_varnames
@@ -46,72 +46,70 @@ def assemble(func: Callable, ancillas_count: int) -> QuantumCircuit:
     for i in range(len(varnames)):
         name = varnames[i]
         if i < input_args_count:
-            input_qubits[name] = Qubit()
+            input_vars[name] = QuantumRegister(1, name=name)
         else:
-            tmp_qubits[name] = Qubit()
+            tmp_vars[name] = AncillaRegister(1, name=name)
 
-    all_qubits = input_qubits | tmp_qubits
+    all_vars = input_vars | tmp_vars
 
-    input_qr = QuantumRegister(bits=list(input_qubits.values()))
-    tmp_qr = QuantumRegister(bits=list(tmp_qubits.values()))
-
-    anc: [AncillaQubit] = []
+    anc: List[AncillaQubit] = []
     for i in range(ancillas_count):
         anc.append(AncillaQubit())
+    ancillas_qr = AncillaRegister(bits=anc)
 
-    ancilla_qr = AncillaRegister(bits=anc)
+    qc = QuantumCircuit(
+        *input_vars.values(), *tmp_vars.values(), ancillas_qr, name=func.__name__
+    )
 
-    qc = QuantumCircuit(input_qr, tmp_qr, ancilla_qr, name=func.__name__)
+    ops_stack: List[QueuedOp] = []
 
-    stack: List[QueuedOp] = []
+    bcode = dis.Bytecode(func)
+    for inst in bcode:
+        opn = inst.opname
 
-    bc = dis.Bytecode(func)
-    for inst in bc:
-        opname = inst.opname
+        if opn == "LOAD_FAST":
+            target = all_vars[inst.argval]
+            ops_stack.append(QueuedRegister(qc, anc, target))
 
-        if opname == "LOAD_FAST":
-            target = all_qubits[inst.argval]
-            stack.append(QueuedQubit(qc, anc, target))
-
-        elif opname == "LOAD_CONST":
+        elif opn == "LOAD_CONST":
             const = inst.argval
-            stack.append(QueuedBool(qc, anc, const))
+            ops_stack.append(QueuedBool(qc, anc, const))
 
-        elif opname == "STORE_FAST":
-            op = stack.pop()
-            target = all_qubits[inst.argval]
+        elif opn == "STORE_FAST":
+            op = ops_stack.pop()
+            target = all_vars[inst.argval]
             op.execute(target)
 
-        elif opname == "BINARY_OR":
-            a = stack.pop()
-            b = stack.pop()
-            stack.append(QueuedOr(qc, anc, a, b))
+        elif opn == "BINARY_OR":
+            a = ops_stack.pop()
+            b = ops_stack.pop()
+            ops_stack.append(QueuedOr(qc, anc, a, b))
 
-        elif opname == "UNARY_NOT":
-            a = stack.pop()
-            stack.append(QueuedNot(qc, anc, a))
+        elif opn == "UNARY_NOT":
+            a = ops_stack.pop()
+            ops_stack.append(QueuedNot(qc, anc, a))
 
-        elif opname == "BINARY_AND":
-            a = stack.pop()
-            b = stack.pop()
-            stack.append(QueuedAnd(qc, anc, a, b))
+        elif opn == "BINARY_AND":
+            a = ops_stack.pop()
+            b = ops_stack.pop()
+            ops_stack.append(QueuedAnd(qc, anc, a, b))
 
-        elif opname == "COMPARE_OP":
+        elif opn == "COMPARE_OP":
             optype = inst.argval
             if optype == "!=":
-                a = stack.pop()
-                b = stack.pop()
-                stack.append(QueuedNotEqual(qc, anc, a, b))
+                a = ops_stack.pop()
+                b = ops_stack.pop()
+                ops_stack.append(QueuedNotEqual(qc, anc, a, b))
             elif optype == "==":
-                a = stack.pop()
-                b = stack.pop()
-                stack.append(QueuedEqual(qc, anc, a, b))
+                a = ops_stack.pop()
+                b = ops_stack.pop()
+                ops_stack.append(QueuedEqual(qc, anc, a, b))
             else:
                 raise NotImplementedError(
                     f"{inst.argval} comparison not implemented yet"
                 )
 
-        elif opname == "RETURN_VALUE":
+        elif opn == "RETURN_VALUE":
             pass
 
         else:
