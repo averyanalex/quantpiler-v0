@@ -9,11 +9,11 @@ build:
       - asdf plugin add poetry
       - asdf install poetry latest
       - asdf global poetry latest
-      - cd docs && poetry export --dev -f requirements.txt > requirements.txt && cd ..
+      - poetry export --dev -f requirements.txt > requirements.txt
 
 python:
   install:
-    - requirements: docs/requirements.txt
+    - requirements: requirements.txt
 
 sphinx:
   configuration: docs/conf.py
