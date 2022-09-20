@@ -27,7 +27,9 @@ class QueuedOp:
 class QueuedRegister(QueuedOp):
     value: QuantumRegister
 
-    def __init__(self, qc: QuantumCircuit, anc: List[AncillaQubit], value: QuantumRegister):
+    def __init__(
+        self, qc: QuantumCircuit, anc: List[AncillaQubit], value: QuantumRegister
+    ):
         self.qc = qc
         self.anc = anc
         self.value = value
