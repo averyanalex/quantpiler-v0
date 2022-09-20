@@ -19,10 +19,26 @@
           overlays = [ poetry2nix.overlay ];
         };
 
+        python = pkgs.python310;
+
         poetryEnv = pkgs.poetry2nix.mkPoetryEnv {
           projectDir = ./.;
           preferWheels = true;
-          python = pkgs.python310;
+          python = python;
+          overrides = pkgs.poetry2nix.overrides.withDefaults (
+          	self: super: {
+          		nbconvert = super.nbconvert.overrideAttrs (
+          			old: {
+          				postPatch = "";
+          			}
+          		);
+          		notebook = super.notebook.overrideAttrs (
+          		    old: {
+          		        meta.priority = 200;
+          		    }
+          		);
+          	}
+          );
           editablePackageSources = {
             quantpiler = ./quantpiler;
           };
@@ -32,7 +48,9 @@
         devShells.default = poetryEnv.env.overrideAttrs (oldAttrs: {
           buildInputs = with pkgs; [
             pandoc
-            python310Packages.poetry
+            (poetry.overrideAttrs (old: {
+            	python = python;
+            }))
           ];
         });
       }));
