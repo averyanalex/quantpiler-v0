@@ -5,4 +5,5 @@ Usage examples
    :maxdepth: 1
 
    qram
+   adder
    compiler
