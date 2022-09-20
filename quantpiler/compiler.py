@@ -22,7 +22,7 @@ from .qops import (
 )
 
 
-def compile(func: Callable, ancillas_count: int) -> QuantumCircuit:
+def assemble(func: Callable, ancillas_count: int) -> QuantumCircuit:
     """Compile python function to qiskit circuit.
 
     Args:

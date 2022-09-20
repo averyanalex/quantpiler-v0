@@ -1,4 +1,4 @@
-from quantpiler import compiler
+from quantpiler.compiler import assemble
 
 from quantpiler.utils import execute_qc_once
 
@@ -8,7 +8,7 @@ def test_or():
         a = True
         c = a | b
 
-    qc = compiler.compile(or_func, 0)
+    qc = assemble(or_func, 0)
     bits = execute_qc_once(qc)
     assert bits == "101"
 
@@ -23,6 +23,6 @@ def test_complex():
         d = (c != False) & b == True
         b = a | d
 
-    qc = compiler.compile(complex_func, 5)
+    qc = assemble(complex_func, 5)
     bits = execute_qc_once(qc)
     assert bits[-4:] == "1111"
