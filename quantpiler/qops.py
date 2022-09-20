@@ -38,7 +38,7 @@ class QueuedRegister(QueuedOp):
         return True
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.value}")
+        # print(f"{target} = {self.value}")
         self.qc.reset(target)
         self.qc.cx(self.value, target)
 
@@ -58,7 +58,7 @@ class QueuedBool(QueuedOp):
         self.value = value
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.value}")
+        # print(f"{target} = {self.value}")
         self.qc.reset(target)
         if self.value:
             self.qc.x(target)
@@ -73,7 +73,7 @@ class QueuedNot(QueuedOp):
         self.a = a
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = not {self.a}")
+        # print(f"{target} = not {self.a}")
 
         a1 = self.a.prepare_anc()
 
@@ -99,7 +99,7 @@ class QueuedOr(QueuedOp):
         self.b = b
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.a} | {self.b}")
+        # print(f"{target} = {self.a} | {self.b}")
 
         a1 = self.a.prepare_anc()
         a2 = self.b.prepare_anc()
@@ -127,7 +127,7 @@ class QueuedAnd(QueuedOp):
         self.b = b
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.a} & {self.b}")
+        # print(f"{target} = {self.a} & {self.b}")
 
         a1 = self.a.prepare_anc()
         a2 = self.b.prepare_anc()
@@ -152,7 +152,7 @@ class QueuedNotEqual(QueuedOp):
         self.b = b
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.a} != {self.b}")
+        # print(f"{target} = {self.a} != {self.b}")
 
         a1 = self.a.prepare_anc()
 
@@ -175,7 +175,7 @@ class QueuedEqual(QueuedOp):
         self.b = b
 
     def execute(self, target: QuantumRegister):
-        print(f"{target} = {self.a} == {self.b}")
+        # print(f"{target} = {self.a} == {self.b}")
 
         a1 = self.a.prepare_anc()
 

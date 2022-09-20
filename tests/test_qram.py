@@ -25,8 +25,6 @@ def check_qram(qram, addr, data):
     qc.barrier()
     qc.measure(dqr, rqr)
 
-    print(qc.draw())
-
     bits = execute_qc_once(qc, measure=False)
 
     v_str = ""
