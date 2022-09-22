@@ -22,22 +22,14 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Setup poetry
-        uses: abatilo/actions-poetry@v2.1.6
-        with:
-          poetry-version: "1.1.14"
+        uses: Gr1N/setup-poetry@v7
 
       - name: Cache poetry virtualenv
         uses: actions/cache@v3
         id: poetry-cache
         with:
-          path: ~/.virtualenvs
+          path: ~/.cache/pypoetry/virtualenvs
           key: ${{ matrix.os }}-py${{ matrix.python }}-poetry-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Set poetry config
-        run: |
-          poetry config experimental.new-installer false
-          poetry config virtualenvs.in-project false
-          poetry config virtualenvs.path ~/.virtualenvs
 
       - name: Install libs for scipy
         run: sudo apt-get install gfortran libopenblas-dev liblapack-dev
