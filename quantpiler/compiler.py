@@ -2,117 +2,183 @@
 Python -> QuantumCircuit compiler.
 """
 
-from typing import Callable, List
+from typing import Callable, Dict, List
 
-import dis
+import ast
+import inspect
 
 from qiskit.circuit.quantumregister import Qubit, AncillaQubit
 from qiskit import QuantumRegister, AncillaRegister
 from qiskit.circuit import QuantumCircuit
 
-from .qops import (
-    QueuedAnd,
-    QueuedBool,
-    QueuedEqual,
-    QueuedNot,
-    QueuedNotEqual,
-    QueuedOp,
-    QueuedOr,
-    QueuedRegister,
-)
+
+def get_args_vars(func: Callable):
+    args_vars: Dict[str, int] = {}
+
+    st = get_ast(func)
+    args = st.body[0].args.args
+    for arg in args:
+        args_vars[arg.arg] = arg.annotation.value
+
+    return args_vars
 
 
-def assemble(func: Callable, ancillas_count: int) -> QuantumCircuit:
+def get_ast(module) -> ast.AST:
+    source = inspect.getsource(module)
+    st = ast.parse(source)
+    return st
+
+
+def unwrap_xor_chain(op: ast.BinOp) -> List[ast.AST]:
+    sources: List[ast.AST] = []
+
+    def unwrap_xor(_op: ast.BinOp, _sources: List[ast.AST]):
+        if type(_op.left) == ast.BinOp:
+            if type(_op.left.op) == ast.BitXor:
+                unwrap_xor(_op.left, _sources)
+            else:
+                _sources.append(_op.left)
+        else:
+            _sources.append(_op.left)
+
+        if type(_op.right) == ast.BinOp:
+            if type(_op.right.op) == ast.BitXor:
+                unwrap_xor(_op.right, _sources)
+            else:
+                _sources.append(_op.right)
+        else:
+            _sources.append(_op.right)
+
+    unwrap_xor(op, sources)
+    return sources
+
+
+def values_to_regs(
+    qc: QuantumCircuit, values: List[ast.AST], variables: Dict[str, QuantumRegister]
+) -> List[QuantumRegister]:
+    regs: List[QuantumRegister] = []
+
+    for val in values:
+        if type(val) == ast.Name:
+            regs.append(variables[val.id])
+        else:
+            # anc = get_ancilla_reg()
+            # assemble_op(qc, variables, anc, val)
+            # regs.append(anc)
+            raise NotImplementedError(f"Ancillas not implemented")
+
+    return regs
+
+
+def assemble_invert(
+    qc: QuantumCircuit, source: QuantumRegister, target: QuantumRegister
+):
+    if source == target:
+        qc.x(source)
+    else:
+        qc.reset(target)
+        qc.x(target)
+        for i in range(min(len(source), len(target))):
+            qc.cx(source[i], target[i])
+
+
+def assemble_xor(
+    qc: QuantumCircuit, sources: List[QuantumRegister], target: QuantumRegister
+):
+    if target in sources:
+        sources.remove(target)
+    else:
+        qc.reset(target)
+
+    for src in sources:
+        for i in range(min(len(src), len(target))):
+            qc.cx(src[i], target[i])
+
+
+def value_to_reg(
+    qc: QuantumCircuit, value: ast.AST, variables: Dict[str, QuantumRegister]
+) -> QuantumRegister:
+    if type(value) == ast.Name:
+        return variables[value.id]
+    else:
+        raise NotImplementedError(f"Ancillas not implemented")
+
+
+def assemble_op(
+    qc: QuantumCircuit,
+    variables: Dict[str, QuantumRegister],
+    target: QuantumRegister,
+    op: ast.AST,
+):
+    op_type = type(op)
+    if op_type == ast.UnaryOp:
+        source = value_to_reg(qc, op.operand, variables)
+
+        op_subtype = type(op.op)
+        if op_subtype == ast.Invert:
+            assemble_invert(qc, source, target)
+        else:
+            raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
+
+    elif op_type == ast.BinOp:
+        op_subtype = type(op.op)
+        if op_subtype == ast.BitXor:
+            sources = values_to_regs(qc, unwrap_xor_chain(op), variables)
+            assemble_xor(qc, sources, target)
+        else:
+            raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
+    else:
+        raise NotImplementedError(f"Unsupported operation: {op_type}")
+
+
+def assemble_instruction(
+    qc: QuantumCircuit, variables: Dict[str, QuantumRegister], instruction: ast.AST
+):
+    inst_type = type(instruction)
+
+    if inst_type == ast.Assign:
+        target = variables[instruction.targets[0].id]
+        assemble_op(qc, variables, target, instruction.value)
+    elif inst_type == ast.AnnAssign:
+        target = variables[instruction.target.id]
+        assemble_op(qc, variables, target, instruction.value)
+    else:
+        raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
+
+
+def assemble_function(
+    qc: QuantumCircuit, func: Callable, variables: Dict[str, QuantumRegister]
+):
+    st = get_ast(func)
+    instructions = st.body[0].body
+
+    for inst in instructions:
+        print(ast.dump(inst, indent=4))
+        qc.barrier()
+        assemble_instruction(qc, variables, inst)
+
+
+def assemble(func: Callable) -> QuantumCircuit:
     """Compile python function to qiskit circuit.
 
     Args:
         func (Callable): Function to compile.
-        ancillas_count (int): Number of needed ancilla qubits.
 
     Raises:
-        NotImplementedError: Some of required operations not supported yet.
+        NotImplementedError: Some of used operations aren't supported yet.
 
     Returns:
         QuantumCircuit: Compiled circuit.
     """
 
-    input_vars = {}
-    tmp_vars = {}
-    all_vars = {}
+    variables: Dict[str, QuantumRegister] = {}
 
-    input_args_count = func.__code__.co_argcount
-    varnames = func.__code__.co_varnames
+    args_vars = get_args_vars(func)
+    for arg_name, arg_bitness in args_vars.items():
+        variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
 
-    for i in range(len(varnames)):
-        name = varnames[i]
-        if i < input_args_count:
-            input_vars[name] = QuantumRegister(1, name=name)
-        else:
-            tmp_vars[name] = AncillaRegister(1, name=name)
+    qc = QuantumCircuit(*variables.values(), name=func.__name__)
 
-    all_vars = input_vars | tmp_vars
-
-    anc: List[AncillaQubit] = []
-    for i in range(ancillas_count):
-        anc.append(AncillaQubit())
-    ancillas_qr = AncillaRegister(bits=anc)
-
-    qc = QuantumCircuit(
-        *input_vars.values(), *tmp_vars.values(), ancillas_qr, name=func.__name__
-    )
-
-    ops_stack: List[QueuedOp] = []
-
-    bcode = dis.Bytecode(func)
-    for inst in bcode:
-        opn = inst.opname
-
-        if opn == "LOAD_FAST":
-            target = all_vars[inst.argval]
-            ops_stack.append(QueuedRegister(qc, anc, target))
-
-        elif opn == "LOAD_CONST":
-            const = inst.argval
-            ops_stack.append(QueuedBool(qc, anc, const))
-
-        elif opn == "STORE_FAST":
-            op = ops_stack.pop()
-            target = all_vars[inst.argval]
-            op.execute(target)
-
-        elif opn == "BINARY_OR":
-            a = ops_stack.pop()
-            b = ops_stack.pop()
-            ops_stack.append(QueuedOr(qc, anc, a, b))
-
-        elif opn == "UNARY_NOT":
-            a = ops_stack.pop()
-            ops_stack.append(QueuedNot(qc, anc, a))
-
-        elif opn == "BINARY_AND":
-            a = ops_stack.pop()
-            b = ops_stack.pop()
-            ops_stack.append(QueuedAnd(qc, anc, a, b))
-
-        elif opn == "COMPARE_OP":
-            optype = inst.argval
-            if optype == "!=":
-                a = ops_stack.pop()
-                b = ops_stack.pop()
-                ops_stack.append(QueuedNotEqual(qc, anc, a, b))
-            elif optype == "==":
-                a = ops_stack.pop()
-                b = ops_stack.pop()
-                ops_stack.append(QueuedEqual(qc, anc, a, b))
-            else:
-                raise NotImplementedError(
-                    f"{inst.argval} comparison not implemented yet"
-                )
-
-        elif opn == "RETURN_VALUE":
-            pass
-
-        else:
-            raise NotImplementedError(f"Operation {inst.opname} not implemented yet")
+    assemble_function(qc, func, variables)
 
     return qc
