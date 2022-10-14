@@ -33,21 +33,11 @@ def unwrap_xor_chain(op: ast.BinOp) -> List[ast.AST]:
     sources: List[ast.AST] = []
 
     def unwrap_xor(_op: ast.BinOp, _sources: List[ast.AST]):
-        if type(_op.left) == ast.BinOp:
-            if type(_op.left.op) == ast.BitXor:
-                unwrap_xor(_op.left, _sources)
+        for side in [_op.left, _op.right]:
+            if type(side) == ast.BinOp and type(side.op) == ast.BitXor:
+                unwrap_xor(side, _sources)
             else:
-                _sources.append(_op.left)
-        else:
-            _sources.append(_op.left)
-
-        if type(_op.right) == ast.BinOp:
-            if type(_op.right.op) == ast.BitXor:
-                unwrap_xor(_op.right, _sources)
-            else:
-                _sources.append(_op.right)
-        else:
-            _sources.append(_op.right)
+                _sources.append(side)
 
     unwrap_xor(op, sources)
     return sources
