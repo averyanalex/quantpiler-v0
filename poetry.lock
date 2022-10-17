@@ -88,7 +88,7 @@ python-versions = ">=3.5"
 dev = ["cloudpickle", "coverage[toml] (>=5.0.2)", "furo", "hypothesis", "mypy (>=0.900,!=0.940)", "pre-commit", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "sphinx", "sphinx-notfound-page", "zope.interface"]
 docs = ["furo", "sphinx", "sphinx-notfound-page", "zope.interface"]
 tests = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "zope.interface"]
-tests_no_zope = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins"]
+tests-no-zope = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins"]
 
 [[package]]
 name = "Babel"
@@ -191,7 +191,7 @@ optional = false
 python-versions = ">=3.6.0"
 
 [package.extras]
-unicode_backport = ["unicodedata2"]
+unicode-backport = ["unicodedata2"]
 
 [[package]]
 name = "click"
@@ -421,7 +421,7 @@ notebook = ["ipywidgets", "notebook"]
 parallel = ["ipyparallel"]
 qtconsole = ["qtconsole"]
 test = ["pytest (<7.1)", "pytest-asyncio", "testpath"]
-test_extra = ["curio", "matplotlib (!=3.2.0)", "nbformat", "numpy (>=1.19)", "pandas", "pytest (<7.1)", "pytest-asyncio", "testpath", "trio"]
+test-extra = ["curio", "matplotlib (!=3.2.0)", "nbformat", "numpy (>=1.19)", "pandas", "pytest (<7.1)", "pytest-asyncio", "testpath", "trio"]
 
 [[package]]
 name = "ipython_genutils"
@@ -1165,7 +1165,7 @@ py = {version = "*", markers = "implementation_name == \"pypy\""}
 
 [[package]]
 name = "qiskit"
-version = "0.38.0"
+version = "0.39.0"
 description = "Software for developing quantum computing programs"
 category = "main"
 optional = false
@@ -1174,7 +1174,7 @@ python-versions = ">=3.7"
 [package.dependencies]
 qiskit-aer = "0.11.0"
 qiskit-ibmq-provider = "0.19.2"
-qiskit-terra = "0.21.2"
+qiskit-terra = "0.22.0"
 
 [package.extras]
 all = ["ipywidgets (>=7.3.0)", "matplotlib (>=2.1)", "pillow (>=4.2.1)", "pydot", "pygments (>=2.4)", "pylatexenc (>=1.4)", "qiskit-experiments (>=0.2.0)", "qiskit-finance (>=0.3.3)", "qiskit-machine-learning (>=0.4.0)", "qiskit-nature (>=0.4.1)", "qiskit-optimization (>=0.4.0)", "seaborn (>=0.9.0)"]
@@ -1224,7 +1224,7 @@ visualization = ["ipython (>=5.0.0)", "ipyvue (>=1.4.1)", "ipyvuetify (>=1.1)", 
 
 [[package]]
 name = "qiskit-terra"
-version = "0.21.2"
+version = "0.22.0"
 description = "Software for developing quantum computing programs"
 category = "main"
 optional = false
@@ -1241,7 +1241,7 @@ scipy = ">=1.5"
 stevedore = ">=3.0.0"
 symengine = {version = ">=0.9", markers = "platform_machine == \"x86_64\" or platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"amd64\" or platform_machine == \"arm64\""}
 sympy = ">=1.3"
-tweedledum = ">=1.1,<2.0"
+tweedledum = {version = ">=1.1,<2.0", markers = "platform_machine != \"arm64\" or sys_platform != \"darwin\""}
 
 [package.extras]
 all = ["ipywidgets (>=7.3.0)", "matplotlib (>=3.3)", "pillow (>=4.2.1)", "pydot", "pygments (>=2.4)", "pylatexenc (>=1.4)", "python-constraint (>=1.4)", "seaborn (>=0.9.0)", "z3-solver (>=4.7)"]
@@ -1267,7 +1267,7 @@ urllib3 = ">=1.21.1,<1.27"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
+use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "requests_ntlm"
@@ -1643,7 +1643,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "75a8a038f9e086ee921ac624ea4f8d00039c8388f77dd742bfbcc8e446951ba9"
+content-hash = "b54d406e584490d3029c92bc34d219377cd19a0633d73fe3774620127a5d6d53"
 
 [metadata.files]
 alabaster = [
@@ -2465,7 +2465,7 @@ pyzmq = [
     {file = "pyzmq-24.0.1.tar.gz", hash = "sha256:216f5d7dbb67166759e59b0479bca82b8acf9bed6015b526b8eb10143fb08e77"},
 ]
 qiskit = [
-    {file = "qiskit-0.38.0.tar.gz", hash = "sha256:f7bcd2470bed40b2d41bedb8389a0102cb24427579218ea83a240881b1df0282"},
+    {file = "qiskit-0.39.0.tar.gz", hash = "sha256:243defbe31fc7a122afbab387c5f263f2a4d16ee6ecb0286178b5fa7c2a86029"},
 ]
 qiskit-aer = [
     {file = "qiskit-aer-0.11.0.tar.gz", hash = "sha256:d56aa88da4c702f887c015a5f6752dfe90e67d9d348c2f63620e82ec58e83bee"},
@@ -2510,45 +2510,33 @@ qiskit-ibmq-provider = [
     {file = "qiskit_ibmq_provider-0.19.2-py3-none-any.whl", hash = "sha256:d31786cf5a54f334387081d82b5b19c4269c176079fab5ad843f8fc8eadbce84"},
 ]
 qiskit-terra = [
-    {file = "qiskit-terra-0.21.2.tar.gz", hash = "sha256:355fd3992965afdf2b402b2071b61175ad98498151e0991d229d7afc822a7ec2"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:f3761cbbcc9c956cbb642ae24e1250a6a7db7c19daa98440ecab12c0403dfac6"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d8391ecf98a5a4854264e314ef0fcd189258dafffc5cfee9ca8e3d6f98e5a1cd"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:a0d3f5fe530a65bc74a0357107b387539f892f88c42d36f2c79fa3aa91469154"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:268560694645393be65e85f610ad7ba3f3d37b522cebab8afec9c90b32f384d3"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e5e29cf7cfe1498630814e8aa4182d48905306ec3c47cfb4ab30e1f793274d7d"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:66f9cef4cdb8cd01968b1b0eb9eae23dcb693458357cfd2b1fdd3de567eec7e6"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:82a766c79a8a6ab392f0a9a8e9a30a0732826796c90718a77460eb8ff2b9f7b0"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:52cd8acdb61b56f21a773b3a4f2b01ccec6843f9beb98c8ad97984fcc7c66f9a"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-win32.whl", hash = "sha256:a213ae25513caa656e8708390e2e1b41a744b442bf2f8510df46c90822abf239"},
-    {file = "qiskit_terra-0.21.2-cp310-cp310-win_amd64.whl", hash = "sha256:d17051c95adcf3fb5483a7b8e81e2096369e03a55526a1838cf930308a4b8edb"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:afde22a4c1ac224fef9aeb5201ca65a115f703d99f42fbae20b7832fd1b723e9"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:65db08b7fcd7a736df7c45c4c0e29a4705df2acbe2014ea78a6bedf4394b29da"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:488f8d4e37eec5370f53c5654f22131d6e5e1a4035ef086da3970901c14a79fd"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:5c7ce76062662898626846a28df82b9dd29bb4b93318d1036670134efda7d267"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bd01554a8d7165dad3d6766853b9d7d8038d0b2441cb0c26ac4d8cdd9e492b24"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1652d93559dae2d1a5d8f3599ec64f6ce5ee8de4e33fedf04e3d29b4d4f3eb52"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-win32.whl", hash = "sha256:0a85d38c1727bd0d03a4f366f67bbeab18f888909a98b63b048f89cadbf52c4c"},
-    {file = "qiskit_terra-0.21.2-cp37-cp37m-win_amd64.whl", hash = "sha256:92f530bf07172203ea8a9c169cc2a82d526cc6ca683e3733d14f994f5fb78822"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:53ca8d909671a698b55d23a920db1744d3220a073b83a53de41c98a50d72282e"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:4c665c16c86355e913b0bdb5778555774a47ef8bda4717ebc0f03e6723a32b5d"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:ab589e494306ced49643361322b3dc57921d9e35b2c16db4fb2f90fd33ab4bc2"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7efcb8535fbc518683eec1306cfa1561fb4e966a4d48e1640b5dad7413ba4777"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:4feeed7aa3887342d0a648b6823332943097b03cda00eb9f30e42e85e93c8825"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:24a4a8a2520e477cd07dd448509d3651e681c4c9e626ce71011b399ba6315635"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a94358f87ec8bf5d3ef516056877c33a049f49d1c44392751310ad5bfde711c0"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:cdd40b95f7916473b20c68dd68d0a3e69761262bd7ba2fc87ff44d7412de0831"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-win32.whl", hash = "sha256:5030dac8a714b38b0566634227371323aeb1e5bee0ee6877a37951802aaa1785"},
-    {file = "qiskit_terra-0.21.2-cp38-cp38-win_amd64.whl", hash = "sha256:32464b0ab7611ce82f3bfe3ae8b7ebb9fa0ab577459ba01d17e541365bc0dafa"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:d59338fd7cfd12f53a9ba57a3eadb0c2539ef8eaabcdd34bc2815a50db0952d1"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:904f0dac9c14fa8104559fa073b4deead679f66e3a9521c4631ddd1f19880909"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:71fa936b3f214d0a0c2394f5122e78f3fd92573ca1814b659648ffc7e65d0bbe"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1c9382e94febc68fec737f2c78292d90ed491be99ed1b91ffb37e55e08bbf097"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:eefdb6afd459734b1881e3a5b91fc3df3a481705b42f4c49811a04ce20e83c32"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:22c562997062b7831b3765a7a9da1504ffdb32af0bde4ef20d0397517696ec4b"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9a2c6359d4f05eed1904c3b538db7c6fd8b171224593878d21f9ab60ee9a2117"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:d4cf59748974a73171b99fbc291313d62546ce25291f31315c4af4af1de57b6f"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-win32.whl", hash = "sha256:73c79654b66e4fc7c953ba094fc1b91973bc814eeeb58d51024b5ffdb88f2347"},
-    {file = "qiskit_terra-0.21.2-cp39-cp39-win_amd64.whl", hash = "sha256:59f069f7997726a6fa5ac715d7f667aaf12c54acf26f2146900f673f12b69a4a"},
+    {file = "qiskit-terra-0.22.0.tar.gz", hash = "sha256:d7caca15679da8415edfc8a21921bd43487cee94bb9bd1a3b3ac8e1843788d1c"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:bb791b882e2a554f26e3e787f9918c8db925d0826a7809ab5c90177ecb8cfacd"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:a0b5be40151ec2236a181c2a279e987d0a631eee721371164a3a3d765724e615"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7f661e48a466842a8052d247b9b6485202c413fdd68180c5c409d3744bc518fb"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:08cde77d38e038523f4a30f5df2a09d5e24123ddcd5887789823ce14cea1dadb"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a02ae63886851f8a463e5d3c5b937d7147d57b31819249cb5ac9c71f94d0a6f3"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-win32.whl", hash = "sha256:64bfaafb44462ddc28ff57662ba1796bf6a94a8aabb3e54560bd0db49b301ad4"},
+    {file = "qiskit_terra-0.22.0-cp310-cp310-win_amd64.whl", hash = "sha256:f65317fbc39202687699186490ee9d811dba97923ea16a6c78ebcd55f33d510a"},
+    {file = "qiskit_terra-0.22.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:460880b254bee9ae88eb6b651b9d6395e4bc24719f256740233aa2536ca09b8e"},
+    {file = "qiskit_terra-0.22.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccecc18761133f578b20c42aebf92cd48992ddb1f37cf75ac90ca152ab7ca694"},
+    {file = "qiskit_terra-0.22.0-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:3ecdf1c48b613b9d8412913a76726c925184a2a974db4c12e584426908f20c67"},
+    {file = "qiskit_terra-0.22.0-cp37-cp37m-win32.whl", hash = "sha256:449ae0fe1fa9992ca6f996c759a3caaee9c957a5e250262b798c56d79605e269"},
+    {file = "qiskit_terra-0.22.0-cp37-cp37m-win_amd64.whl", hash = "sha256:efcf91e2487808d05f9eea99d8d98be4ff51773bda348248f5127cac5df0c156"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:7b29749cb72e88a0293ec2cdc3eb1bafa934a9c9a7b1c91f24c35029bac5cef9"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:0cf968487e7bbe8c9be89f8783df795f8a7b2a556dfa37a5614daac026f92239"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:22395d32ba4f6432bd11cb4d8ac9ef40a501503f902bbba2424eaad8b61adc6f"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f658544187bd3f429f6e963b3337295687a05c2fab995c9842d9db9769bb6c45"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:67cfa89ac56597b73014d2e58e02d7bf584423235ca536c01166cfded06bfa8f"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-win32.whl", hash = "sha256:92effd94fccfd427c6b2cd87608965a584b3dfdd3fa95b501919cc4fc57a6b46"},
+    {file = "qiskit_terra-0.22.0-cp38-cp38-win_amd64.whl", hash = "sha256:17e2daabfbdec6acc57c042dc37d9e9524497efed006d09cd7d1d3da9f518da6"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:70f3b5ccedd653581d9ec81ed65c29b0faa6318c6dcd55a7575097b6cd41a426"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:703b42d39b0dfa6a49af9eb26faffde1a44d5c951ca6d0ec3426a1537cc5897d"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:d18edf1968af8f926a9597bece97ce1f880f8c1bb59c6056bc94422bf81ee98f"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a72904dc2b22f1813277090807151ecd1f7fda5622cc10875fca88c25129394d"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:6cfa5d3a0b49dab6a0c5ae6f4e73ce11dcba1d9ea8fb729cce897c7a7381d3dc"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-win32.whl", hash = "sha256:ab28d2c3475a3c29ada80b518af4da532b3120e2c89eac72c82afedc19834e28"},
+    {file = "qiskit_terra-0.22.0-cp39-cp39-win_amd64.whl", hash = "sha256:149a5fbbe813a0775c0ca2cf55fb3702129f08284633482ef7a3f18714d90659"},
 ]
 requests = [
     {file = "requests-2.28.1-py3-none-any.whl", hash = "sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349"},
