@@ -43,6 +43,34 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
     return sources
 
 
+def get_used_vars(op: ast.AST) -> List[str]:
+    variables: List[str] = []
+
+    def guv(_op: ast.AST, _vars: List[str]):
+        op_type = type(_op)
+
+        if op_type == ast.Name:
+            _vars.append(_op.id)
+        elif op_type == ast.UnaryOp:
+            guv(_op.value, _vars)
+        elif op_type == ast.BinOp:
+            for val in [_op.left, _op.right]:
+                guv(val, _vars)
+        else:
+            raise NotImplementedError()
+
+    guv(op, variables)
+    return variables
+
+
+def get_max_used_var(op: ast.AST, variables: Dict[str, QuantumRegister]) -> int:
+    anc_size = 0
+    for var in get_used_vars(op):
+        if len(variables[var]) > anc_size:
+            anc_size = len(variables[var])
+    return anc_size
+
+
 def assemble_invert(
     qc: QuantumCircuit, source: QuantumRegister, target: QuantumRegister
 ):
@@ -179,7 +207,8 @@ def value_to_reg(
     if type(value) == ast.Name:
         return variables[value.id]
     else:
-        reg = get_ancilla_reg(qc, ancillas, 4)
+        max_size = get_max_used_var(value, variables)
+        reg = get_ancilla_reg(qc, ancillas, max_size)
         assemble_op(qc, variables, ancillas, reg, value)
         return reg
 
