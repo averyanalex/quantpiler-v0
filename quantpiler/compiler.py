@@ -29,6 +29,26 @@ def get_ast(module) -> ast.AST:
     return st
 
 
+def get_used_vars(op: ast.AST) -> List[str]:
+    variables: List[str] = []
+
+    def guv(_op: ast.AST, _vars: List[str]):
+        op_type = type(_op)
+
+        if op_type == ast.Name:
+            _vars.append(_op.id)
+        elif op_type == ast.UnaryOp:
+            guv(_op.operand, _vars)
+        elif op_type == ast.BinOp:
+            for val in [_op.left, _op.right]:
+                guv(val, _vars)
+        else:
+            raise NotImplementedError()
+
+    guv(op, variables)
+    return variables
+
+
 def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
     sources: List[ast.AST] = []
 
@@ -43,290 +63,229 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
     return sources
 
 
-def get_used_vars(op: ast.AST) -> List[str]:
-    variables: List[str] = []
+class Compiler:
+    qc: QuantumCircuit
+    variables: Dict[str, QuantumRegister]
+    ancillas: List[AncillaQubit]
 
-    def guv(_op: ast.AST, _vars: List[str]):
-        op_type = type(_op)
+    def __init__(self):
+        self.variables = {}
+        self.ancillas = []
 
-        if op_type == ast.Name:
-            _vars.append(_op.id)
-        elif op_type == ast.UnaryOp:
-            guv(_op.value, _vars)
-        elif op_type == ast.BinOp:
-            for val in [_op.left, _op.right]:
-                guv(val, _vars)
+    def __init__(self, qc: QuantumCircuit):
+        self.variables = {}
+        self.ancillas = []
+        self.qc = qc
+
+    def assemble(self, func: Callable) -> QuantumCircuit:
+        args_vars = get_args_vars(func)
+        for arg_name, arg_bitness in args_vars.items():
+            self.variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
+
+        self.qc = QuantumCircuit(*self.variables.values(), name=func.__name__)
+
+        st = get_ast(func)
+        self.assemble_function(st.body[0])
+
+        return self.qc
+
+    def assemble_function(self, func: ast.AST):
+        for inst in func.body:
+            print(ast.dump(inst, indent=4))
+            # self.qc.barrier()
+            self.assemble_instruction(inst)
+
+    def assemble_instruction(self, instruction: ast.AST):
+        inst_type = type(instruction)
+
+        if inst_type == ast.Assign:
+            target = self.variables[instruction.targets[0].id]
+        elif inst_type == ast.AnnAssign:
+            target = self.variables[instruction.target.id]
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
-    guv(op, variables)
-    return variables
+        self.assemble_op(instruction.value, target)
 
+    def assemble_op(self, op: ast.AST, target: QuantumRegister):
+        op_type = type(op)
+        if op_type == ast.UnaryOp:
+            source = self.value_to_reg(op.operand)
 
-def get_max_used_var(op: ast.AST, variables: Dict[str, QuantumRegister]) -> int:
-    anc_size = 0
-    for var in get_used_vars(op):
-        if len(variables[var]) > anc_size:
-            anc_size = len(variables[var])
-    return anc_size
-
-
-def assemble_invert(
-    qc: QuantumCircuit, source: QuantumRegister, target: QuantumRegister
-):
-    if source == target:
-        qc.x(source)
-    else:
-        qc.reset(target)
-        qc.x(target)
-        for i in range(min(len(source), len(target))):
-            qc.cx(source[i], target[i])
-
-
-def assemble_xor(
-    qc: QuantumCircuit, sources: List[QuantumRegister], target: QuantumRegister
-):
-    if target in sources:
-        sources.remove(target)
-    else:
-        qc.reset(target)
-
-    for src in sources:
-        for i in range(min(len(src), len(target))):
-            qc.cx(src[i], target[i])
-
-
-def assemble_bit_and(
-    qc: QuantumCircuit,
-    sources: List[QuantumRegister],
-    ancillas: List[AncillaQubit],
-    target: QuantumRegister,
-):
-    if target in sources:
-        sources.remove(target)
-
-        for i in range(len(target)):
-            src_qubits: List[Qubit] = []
-
-            for src_reg in sources:
-                if len(src_reg) >= i + 1:
-                    src_qubits.append(src_reg[i])
-
-            if len(src_qubits) > 0:
-                src_qubits.append(target[i])
-
-                anc = get_ancilla(qc, ancillas)
-                qc.reset(anc)
-
-                qc.mcx(src_qubits, anc)
-                qc.swap(anc, target[i])
-
-                drop_ancilla(qc, ancillas, anc)
+            op_subtype = type(op.op)
+            if op_subtype == ast.Invert:
+                self.assemble_invert(source, target)
             else:
-                qc.reset(target[i])
-    else:
-        qc.reset(target)
-        for i in range(len(target)):
-            src_qubits: List[Qubit] = []
-            for src_reg in sources:
-                if len(src_reg) >= i + 1:
-                    src_qubits.append(src_reg[i])
+                raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
 
-            if len(src_qubits) > 0:
-                qc.mcx(src_qubits, target[i])
+            self.drop_ancilla_reg(source)
 
-
-def assemble_bit_or(
-    qc: QuantumCircuit,
-    sources: List[QuantumRegister],
-    ancillas: List[AncillaQubit],
-    target: QuantumRegister,
-):
-    if target in sources:
-        raise NotImplementedError()
-    else:
-        qc.reset(target)
-        for i in range(len(target)):
-            src_qubits: List[Qubit] = []
-            for src_reg in sources:
-                if len(src_reg) >= i + 1:
-                    src_qubits.append(src_reg[i])
-
-            if len(src_qubits) > 0:
-                qc.x(src_qubits)
-                qc.x(target[i])
-                qc.mcx(src_qubits, target[i])
-                qc.x(src_qubits)
-
-
-def get_ancilla(qc: QuantumCircuit, ancillas: List[AncillaQubit]) -> AncillaQubit:
-    if len(ancillas) == 0:
-        new_anc = AncillaQubit()
-        new_anc_reg = AncillaRegister(bits=[new_anc])
-        qc.add_register(new_anc_reg)
-        return new_anc
-    else:
-        return ancillas.pop()
-
-
-def drop_ancilla(qc: QuantumCircuit, ancillas: List[AncillaQubit], anc: AncillaQubit):
-    ancillas.append(anc)
-
-
-def get_ancilla_reg(
-    qc: QuantumCircuit, ancillas: List[AncillaQubit], size: int
-) -> AncillaRegister:
-    bits: List[AncillaQubit] = []
-    for i in range(size):
-        bits.append(get_ancilla(qc, ancillas))
-
-    return AncillaRegister(bits=bits)
-
-
-def drop_ancilla_reg(
-    qc: QuantumCircuit, ancillas: List[AncillaQubit], reg: AncillaRegister
-):
-    if type(reg) == AncillaRegister:
-        for bit in reg:
-            drop_ancilla(qc, ancillas, bit)
-
-
-def drop_ancilla_regs(
-    qc: QuantumCircuit, ancillas: List[AncillaQubit], regs: List[AncillaRegister]
-):
-    for reg in regs:
-        drop_ancilla_reg(qc, ancillas, reg)
-
-
-def value_to_reg(
-    qc: QuantumCircuit,
-    value: ast.AST,
-    variables: Dict[str, QuantumRegister],
-    ancillas: List[AncillaQubit],
-) -> QuantumRegister:
-    if type(value) == ast.Name:
-        return variables[value.id]
-    else:
-        max_size = get_max_used_var(value, variables)
-        reg = get_ancilla_reg(qc, ancillas, max_size)
-        assemble_op(qc, variables, ancillas, reg, value)
-        return reg
-
-
-def values_to_regs(
-    qc: QuantumCircuit,
-    values: List[ast.AST],
-    variables: Dict[str, QuantumRegister],
-    ancillas: List[AncillaQubit],
-) -> List[QuantumRegister]:
-    regs: List[QuantumRegister] = []
-
-    for val in values:
-        regs.append(value_to_reg(qc, val, variables, ancillas))
-
-    return regs
-
-
-def assemble_op(
-    qc: QuantumCircuit,
-    variables: Dict[str, QuantumRegister],
-    ancillas: List[AncillaQubit],
-    target: QuantumRegister,
-    op: ast.AST,
-):
-    op_type = type(op)
-    if op_type == ast.UnaryOp:
-        source = value_to_reg(qc, op.operand, variables, ancillas)
-
-        op_subtype = type(op.op)
-        if op_subtype == ast.Invert:
-            assemble_invert(qc, source, target)
+        elif op_type == ast.BinOp:
+            op_subtype = type(op.op)
+            if op_subtype == ast.BitXor:
+                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitXor))
+                self.assemble_xor(sources, target)
+                self.drop_ancilla_regs(sources)
+            elif op_subtype == ast.BitAnd:
+                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitAnd))
+                self.assemble_bit_and(sources, target)
+                self.drop_ancilla_regs(sources)
+            elif op_subtype == ast.BitOr:
+                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitOr))
+                self.assemble_bit_or(sources, target)
+                self.drop_ancilla_regs(sources)
+            else:
+                raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
         else:
-            raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
+            raise NotImplementedError(f"Unsupported operation: {op_type}")
 
-        drop_ancilla_reg(qc, ancillas, source)
+    def get_max_used_var(self, op: ast.AST) -> int:
+        anc_size = 0
+        for var in get_used_vars(op):
+            if len(self.variables[var]) > anc_size:
+                anc_size = len(self.variables[var])
+        return anc_size
 
-    elif op_type == ast.BinOp:
-        op_subtype = type(op.op)
-        if op_subtype == ast.BitXor:
-            sources = values_to_regs(
-                qc, unwrap_ops_chain(op, ast.BitXor), variables, ancillas
-            )
-            assemble_xor(qc, sources, target)
-            drop_ancilla_regs(qc, ancillas, sources)
-        elif op_subtype == ast.BitAnd:
-            sources = values_to_regs(
-                qc, unwrap_ops_chain(op, ast.BitAnd), variables, ancillas
-            )
-            assemble_bit_and(qc, sources, ancillas, target)
-            drop_ancilla_regs(qc, ancillas, sources)
-        elif op_subtype == ast.BitOr:
-            sources = values_to_regs(
-                qc, unwrap_ops_chain(op, ast.BitOr), variables, ancillas
-            )
-            assemble_bit_or(qc, sources, ancillas, target)
-            drop_ancilla_regs(qc, ancillas, sources)
+    def value_to_reg(self, value: ast.AST) -> QuantumRegister:
+        if type(value) == ast.Name:
+            return self.variables[value.id]
         else:
-            raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
-    else:
-        raise NotImplementedError(f"Unsupported operation: {op_type}")
+            max_size = self.get_max_used_var(value)
+            reg = self.get_ancilla_reg(max_size)
+            self.assemble_op(value, reg)
+            return reg
+
+    def values_to_regs(self, values: List[ast.AST]) -> List[QuantumRegister]:
+        regs: List[QuantumRegister] = []
+
+        for val in values:
+            regs.append(self.value_to_reg(val))
+
+        return regs
+
+    def get_ancilla(self) -> AncillaQubit:
+        if len(self.ancillas) == 0:
+            new_anc = AncillaQubit()
+            new_anc_reg = AncillaRegister(bits=[new_anc])
+            self.qc.add_register(new_anc_reg)
+            return new_anc
+        else:
+            return self.ancillas.pop()
+
+    def get_ancilla_reg(self, size: int) -> AncillaRegister:
+        bits: List[AncillaQubit] = []
+        for i in range(size):
+            bits.append(self.get_ancilla())
+
+        return AncillaRegister(bits=bits)
+
+    def drop_ancilla(self, anc: AncillaQubit):
+        self.ancillas.append(anc)
+
+    def drop_ancilla_reg(self, reg: AncillaRegister):
+        if type(reg) == AncillaRegister:
+            for bit in reg:
+                self.drop_ancilla(bit)
+
+    def drop_ancilla_regs(self, regs: List[AncillaRegister]):
+        for reg in regs:
+            self.drop_ancilla_reg(reg)
+
+    def assemble_invert(self, source: QuantumRegister, target: QuantumRegister):
+        if source == target:
+            self.qc.x(source)
+        else:
+            self.qc.reset(target)
+            self.qc.x(target)
+            for i in range(min(len(source), len(target))):
+                self.qc.cx(source[i], target[i])
+
+    def assemble_xor(self, sources: List[QuantumRegister], target: QuantumRegister):
+        if target in sources:
+            sources.remove(target)
+        else:
+            self.qc.reset(target)
+
+        for src in sources:
+            for i in range(min(len(src), len(target))):
+                self.qc.cx(src[i], target[i])
+
+    def assemble_bit_and(self, sources: List[QuantumRegister], target: QuantumRegister):
+        if target in sources:
+            sources.remove(target)
+
+            for i in range(len(target)):
+                src_qubits: List[Qubit] = []
+
+                for src_reg in sources:
+                    if len(src_reg) >= i + 1:
+                        src_qubits.append(src_reg[i])
+
+                if len(src_qubits) > 0:
+                    src_qubits.append(target[i])
+
+                    anc = self.get_ancilla()
+                    self.qc.reset(anc)
+
+                    self.qc.mcx(src_qubits, anc)
+                    self.qc.swap(anc, target[i])
+
+                    self.drop_ancilla(anc)
+                else:
+                    self.qc.reset(target[i])
+        else:
+            self.qc.reset(target)
+            for i in range(len(target)):
+                src_qubits: List[Qubit] = []
+                for src_reg in sources:
+                    if len(src_reg) >= i + 1:
+                        src_qubits.append(src_reg[i])
+
+                if len(src_qubits) > 0:
+                    self.qc.mcx(src_qubits, target[i])
+
+    def assemble_bit_or(self, sources: List[QuantumRegister], target: QuantumRegister):
+        if target in sources:
+            raise NotImplementedError()
+        else:
+            self.qc.reset(target)
+            for i in range(len(target)):
+                src_qubits: List[Qubit] = []
+                for src_reg in sources:
+                    if len(src_reg) >= i + 1:
+                        src_qubits.append(src_reg[i])
+
+                if len(src_qubits) > 0:
+                    self.qc.x(src_qubits)
+                    self.qc.x(target[i])
+                    self.qc.mcx(src_qubits, target[i])
+                    self.qc.x(src_qubits)
 
 
-def assemble_instruction(
-    qc: QuantumCircuit,
-    variables: Dict[str, QuantumRegister],
-    ancillas: List[AncillaQubit],
-    instruction: ast.AST,
-):
-    inst_type = type(instruction)
+# def assemble(func: Callable) -> QuantumCircuit:
+#     """Compile python function to qiskit circuit.
 
-    if inst_type == ast.Assign:
-        target = variables[instruction.targets[0].id]
-    elif inst_type == ast.AnnAssign:
-        target = variables[instruction.target.id]
-    else:
-        raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
+#     Args:
+#         func (Callable): Function to compile.
 
-    assemble_op(qc, variables, ancillas, target, instruction.value)
+#     Raises:
+#         NotImplementedError: Some of used operations aren't supported yet.
 
+#     Returns:
+#         QuantumCircuit: Compiled circuit.
+#     """
 
-def assemble_function(
-    qc: QuantumCircuit,
-    func: Callable,
-    variables: Dict[str, QuantumRegister],
-    ancillas: List[AncillaQubit],
-):
-    st = get_ast(func)
-    instructions = st.body[0].body
+#     variables: Dict[str, QuantumRegister] = {}
+#     ancillas: List[AncillaQubit] = []
 
-    for inst in instructions:
-        print(ast.dump(inst, indent=4))
-        qc.barrier()
-        assemble_instruction(qc, variables, ancillas, inst)
+#     args_vars = get_args_vars(func)
+#     for arg_name, arg_bitness in args_vars.items():
+#         variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
 
+#     qc = QuantumCircuit(*variables.values(), name=func.__name__)
 
-def assemble(func: Callable) -> QuantumCircuit:
-    """Compile python function to qiskit circuit.
+#     # compiler =
 
-    Args:
-        func (Callable): Function to compile.
+#     assemble_function(qc, func, variables, ancillas)
 
-    Raises:
-        NotImplementedError: Some of used operations aren't supported yet.
-
-    Returns:
-        QuantumCircuit: Compiled circuit.
-    """
-
-    variables: Dict[str, QuantumRegister] = {}
-    ancillas: List[AncillaQubit] = []
-
-    args_vars = get_args_vars(func)
-    for arg_name, arg_bitness in args_vars.items():
-        variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
-
-    qc = QuantumCircuit(*variables.values(), name=func.__name__)
-
-    assemble_function(qc, func, variables, ancillas)
-
-    return qc
+#     return qc

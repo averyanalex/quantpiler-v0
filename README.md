@@ -11,3 +11,7 @@ auto-generating common circuits and compiling python functions.
 Documentation: [https://quantpiler.readthedocs.io/en/latest/index.html](https://quantpiler.readthedocs.io/en/latest/index.html)
 
 Usage examples: [https://quantpiler.readthedocs.io/en/latest/examples/index.html](https://quantpiler.readthedocs.io/en/latest/examples/index.html)
+
+# Compiler
+
+Registers are big-endian
