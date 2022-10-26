@@ -6,6 +6,7 @@ from typing import Callable, Dict, List
 
 import ast
 import inspect
+import textwrap
 
 from qiskit.circuit.quantumregister import Qubit, AncillaQubit
 from qiskit import QuantumRegister, AncillaRegister
@@ -25,6 +26,7 @@ def get_args_vars(func: Callable):
 
 def get_ast(module) -> ast.AST:
     source = inspect.getsource(module)
+    source = textwrap.dedent(source)
     st = ast.parse(source)
     return st
 
@@ -72,9 +74,7 @@ class Compiler:
         self.variables = {}
         self.ancillas = []
 
-    def __init__(self, qc: QuantumCircuit):
-        self.variables = {}
-        self.ancillas = []
+    def set_qc(self, qc: QuantumCircuit):
         self.qc = qc
 
     def assemble(self, func: Callable) -> QuantumCircuit:
@@ -283,9 +283,5 @@ class Compiler:
 #         variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
 
 #     qc = QuantumCircuit(*variables.values(), name=func.__name__)
-
-#     # compiler =
-
-#     assemble_function(qc, func, variables, ancillas)
 
 #     return qc
