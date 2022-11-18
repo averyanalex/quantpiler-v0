@@ -13,7 +13,7 @@ from qiskit import QuantumRegister, AncillaRegister
 from qiskit.circuit import QuantumCircuit
 
 
-def get_args_vars(func: Callable):
+def get_args_vars(func: Callable) -> Dict[str, int]:
     args_vars: Dict[str, int] = {}
 
     st = get_ast(func)
@@ -24,11 +24,34 @@ def get_args_vars(func: Callable):
     return args_vars
 
 
+def get_return_size(func: Callable) -> int:
+    st = get_ast(func)
+    try:
+        return st.body[0].returns.value
+    except AttributeError:
+        return 0
+
+
 def get_ast(module) -> ast.AST:
     source = inspect.getsource(module)
     source = textwrap.dedent(source)
     st = ast.parse(source)
     return st
+
+
+def get_min_reg(*regs: QuantumRegister) -> int:
+    flat_regs: List[QuantumRegister] = []
+    for r in regs:
+        if type(r) == QuantumRegister:
+            flat_regs.append(r)
+        else:
+            flat_regs.extend(r)
+
+    sizes: List[int] = []
+    for reg in flat_regs:
+        sizes.append(len(reg))
+
+    return min(sizes)
 
 
 def get_used_vars(op: ast.AST) -> List[str]:
@@ -68,6 +91,7 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
 class Compiler:
     qc: QuantumCircuit
     variables: Dict[str, QuantumRegister]
+    ret: QuantumRegister
     ancillas: List[AncillaQubit]
 
     def __init__(self):
@@ -82,12 +106,19 @@ class Compiler:
         for arg_name, arg_bitness in args_vars.items():
             self.variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
 
-        self.qc = QuantumCircuit(*self.variables.values(), name=func.__name__)
+        ret_size = get_return_size(func)
+        self.ret = QuantumRegister(ret_size, name="return")
+
+        self.qc = QuantumCircuit(*self.variables.values(), self.ret, name=func.__name__)
 
         st = get_ast(func)
         self.assemble_function(st.body[0])
 
+    def get_qc(self) -> QuantumCircuit:
         return self.qc
+
+    def get_ret(self) -> QuantumRegister:
+        return self.ret
 
     def assemble_function(self, func: ast.AST):
         for inst in func.body:
@@ -102,6 +133,8 @@ class Compiler:
             target = self.variables[instruction.targets[0].id]
         elif inst_type == ast.AnnAssign:
             target = self.variables[instruction.target.id]
+        elif inst_type == ast.Return:
+            target = self.ret
         else:
             raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
@@ -235,14 +268,12 @@ class Compiler:
                     self.qc.reset(target[i])
         else:
             self.qc.reset(target)
-            for i in range(len(target)):
+            for i in range(get_min_reg(sources, target)):
                 src_qubits: List[Qubit] = []
                 for src_reg in sources:
-                    if len(src_reg) >= i + 1:
-                        src_qubits.append(src_reg[i])
+                    src_qubits.append(src_reg[i])
 
-                if len(src_qubits) > 0:
-                    self.qc.mcx(src_qubits, target[i])
+                self.qc.mcx(src_qubits, target[i])
 
     def assemble_bit_or(self, sources: List[QuantumRegister], target: QuantumRegister):
         if target in sources:

@@ -3,7 +3,7 @@ from quantpiler import qram
 from qiskit import QuantumRegister, ClassicalRegister
 from qiskit.circuit import QuantumCircuit
 
-from quantpiler.utils import int_to_bits, execute_qc_once
+from quantpiler.utils import uint_to_bits, execute_qc_once
 
 
 def check_qram(qram, addr, data):
@@ -13,8 +13,8 @@ def check_qram(qram, addr, data):
 
     qc = QuantumCircuit(aqr, dqr, rqr)
 
-    k = int_to_bits(addr, 2)
-    v = int_to_bits(data, 3)
+    k = uint_to_bits(addr, 2)
+    v = uint_to_bits(data, 3)
 
     for i in range(2):
         if k[i]:
