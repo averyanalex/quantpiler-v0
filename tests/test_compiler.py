@@ -1,8 +1,9 @@
 from quantpiler import compiler
+from quantpiler.qreg import QReg
 from quantpiler import utils
 
 from qiskit.circuit.quantumregister import Qubit, AncillaQubit
-from qiskit import QuantumRegister, ClassicalRegister
+from qiskit import ClassicalRegister
 from qiskit.circuit import QuantumCircuit
 
 import ast
@@ -24,22 +25,26 @@ def test_get_used_vars():
 
 
 def test_assemble_xor():
-    a = QuantumRegister(4)
-    b = QuantumRegister(4)
-    c = QuantumRegister(4)
-    c_cl = ClassicalRegister(4)
-    qc = QuantumCircuit(a, b, c, c_cl)
+    a = QReg(4)
+    a.tmp = True
+    b = QReg(5)
+    c_cl = ClassicalRegister(5)
+    qc = QuantumCircuit(a, b, c_cl)
 
     qc.x(a[1])
-    qc.x(a[3])
+
     qc.x(b[2])
+
+    qc.x(a[3])
     qc.x(b[3])
+
+    qc.x(b[4])
 
     comp = compiler.Compiler()
     comp.set_qc(qc)
-    comp.assemble_xor([a, b], c)
+    c = comp.assemble_xor([a, b])
 
     qc.measure(c, c_cl)
 
     res = utils.execute_qc_once(qc)
-    assert res[-4:] == '0110'
+    assert res[-5:] == "10110"
