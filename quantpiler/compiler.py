@@ -93,12 +93,16 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
 class Compiler:
     qc: QuantumCircuit = None
     variables: Dict[str, QReg] = {}
+    conditions: List[Qubit] = []
+    check_cond: bool = False
     ret: QReg = None
     bits: List[Qubit] = []
 
     def __init__(self):
         self.qc = None
         self.variables = {}
+        self.conditions = []
+        self.check_cond = False
         self.ret = None
         self.bits = []
 
@@ -125,9 +129,10 @@ class Compiler:
         return self.ret
 
     def assemble_function(self, func: ast.AST):
-        for inst in func.body:
-            # print(ast.dump(inst, indent=4))
-            # self.qc.barrier()
+        self.assemble_instructions(func.body)
+
+    def assemble_instructions(self, instructions: List[ast.AST]):
+        for inst in instructions:
             self.assemble_instruction(inst)
 
     def assemble_instruction(self, instruction: ast.AST):
@@ -138,7 +143,9 @@ class Compiler:
                 raise NotImplementedError(f"Assign to multiple variables")
             var_name = instruction.targets[0].id
 
-            self.variables[var_name] = self.assemble_op(instruction.value)
+            self.variables[var_name] = self.assemble_op(
+                instruction.value, check_cond=True
+            )
         # elif inst_type == ast.AnnAssign:
         #     var_name = instruction.target.id
         elif inst_type == ast.Return:
@@ -146,17 +153,54 @@ class Compiler:
                 self.ret = self.variables[instruction.value.id]
             else:
                 self.ret = self.assemble_op(instruction.value)
+        elif inst_type == ast.If:
+            # Calculate bool bit from if's test
+            test_res = self.assemble_op(instruction.test)
+
+            if len(self.conditions) == 0:
+                # If is is first if just add cond to conditions
+                cur_cond = self.assemble_to_bool(test_res)
+                self.conditions.append(cur_cond)
+            else:
+                # If there is already conditions calculate (past and current)
+                past_cond = self.conditions.pop()
+                res_cond = self.assemble_to_bool(test_res, prev=past_cond)
+                self.conditions.append(past_cond)
+                self.conditions.append(res_cond)
+
+            if type(instruction.test) != ast.Name:
+                self.destroy_reg(test_res)
+
+            self.assemble_instructions(instruction.body)
+
+            last_cond = self.conditions.pop()
+            self.drop_bit(last_cond)
         else:
             raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
-    def assemble_op(self, op: ast.AST) -> QReg:
+    def assemble_op(self, op: ast.AST, check_cond: bool = False) -> QReg:
+        def wrap_op_cond_check(call: Callable, args) -> QReg:
+            if check_cond:
+                self.check_cond = True
+
+            res = call(args)
+
+            if check_cond:
+                self.check_cond = False
+
+            return res
+
         op_type = type(op)
-        if op_type == ast.UnaryOp:
+        if op_type == ast.Name:
+            # TODO: check cond
+            res = self.variables[op.id]
+
+        elif op_type == ast.UnaryOp:
             source = self.value_to_reg(op.operand)
 
             op_subtype = type(op.op)
             if op_subtype == ast.Invert:
-                res = self.assemble_invert(source)
+                res = wrap_op_cond_check(self.assemble_invert, source)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
 
@@ -166,15 +210,15 @@ class Compiler:
             op_subtype = type(op.op)
             if op_subtype == ast.BitXor:
                 sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitXor))
-                res = self.assemble_xor(sources)
+                res = wrap_op_cond_check(self.assemble_xor, sources)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitAnd:
                 sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitAnd))
-                res = self.assemble_bit_and(sources)
+                res = wrap_op_cond_check(self.assemble_bit_and, sources)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitOr:
                 sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitOr))
-                res = self.assemble_bit_or(sources)
+                res = wrap_op_cond_check(self.assemble_bit_or, sources)
                 self.drop_tmp_regs(sources)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
@@ -286,16 +330,74 @@ class Compiler:
         else:
             return min(regs, key=len)
 
+    def assemble_to_bool(self, src: QReg, prev: Qubit = None) -> Qubit:
+        trg = self.get_bit()
+
+        all_src_bits: List[Qubit] = []
+        for bit in src:
+            all_src_bits.append(bit)
+
+        if prev:
+            all_src_bits.append(prev)
+
+        print(all_src_bits)
+        print(trg)
+
+        # all_src_bits = set(all_src_bits).
+
+        self.qc.x(all_src_bits)
+        self.qc.x(trg)
+        self.qc.mcx(all_src_bits, trg)
+        self.qc.x(all_src_bits)
+
+        self.qc.barrier()
+
+        return trg
+
+    def x(self, trg):
+        if self.check_cond and len(self.conditions):
+            cond = self.conditions.pop()
+            self.qc.cx(cond, trg)
+            self.conditions.append(cond)
+        else:
+            self.qc.x(trg)
+
+    def cx(self, src, trg):
+        if self.check_cond and len(self.conditions):
+            cond = self.conditions.pop()
+            self.qc.ccx(src, cond, trg)
+            self.conditions.append(cond)
+        else:
+            self.qc.cx(src, trg)
+
+    def mcx(self, srcs, trg):
+        if self.check_cond and len(self.conditions):
+            cond = self.conditions.pop()
+            srcs = srcs.copy()
+            srcs.append(cond)
+            self.qc.mcx(srcs, trg)
+            self.conditions.append(cond)
+        else:
+            self.qc.mcx(srcs, trg)
+
+    def swap(self, trg1, trg2):
+        if self.check_cond and len(self.conditions):
+            cond = self.conditions.pop()
+            self.qc.cswap(cond, trg1, trg2)
+            self.conditions.append(cond)
+        else:
+            self.qc.swap(trg1, trg2)
+
     def assemble_invert(self, src: QReg) -> QReg:
         if src.tmp:
             src.tmp = False
-            self.qc.x(src)
+            self.x(src)
             return src
         else:
             trg = self.create_reg(len(src))
-            self.qc.x(trg)
+            self.x(trg)
             for i in range(len(src)):
-                self.qc.cx(src[i], trg[i])
+                self.cx(src[i], trg[i])
             return trg
 
     def assemble_xor(self, srcs: List[QReg]) -> QReg:
@@ -309,7 +411,7 @@ class Compiler:
 
         for src in srcs:
             for i in range(min(len(src), len(trg))):
-                self.qc.cx(src[i], trg[i])
+                self.cx(src[i], trg[i])
                 pass
 
         return trg
@@ -325,13 +427,11 @@ class Compiler:
                 for src in srcs:
                     srcs_bits.append(src[i])
 
-                # TODO: this can be optimized to remove one cx and one reset call
                 tmp_bit = self.get_bit()
-                self.qc.cx(trg[i], tmp_bit)
-                self.qc.reset(trg[i])
+                self.swap(trg[i], tmp_bit)
                 srcs_bits.append(tmp_bit)
 
-                self.qc.mcx(srcs_bits, trg[i])
+                self.mcx(srcs_bits, trg[i])
 
                 self.drop_bit(tmp_bit)
         else:
@@ -342,7 +442,7 @@ class Compiler:
                 for src in srcs:
                     srcs_bits.append(src[i])
 
-                self.qc.mcx(srcs_bits, trg[i])
+                self.mcx(srcs_bits, trg[i])
 
         return trg
 
@@ -359,16 +459,16 @@ class Compiler:
 
                     srcs_bits.append(src[i])
 
-                # TODO: this can be optimized to remove one cx and one reset call
                 tmp_bit = self.get_bit()
-                self.qc.cx(trg[i], tmp_bit)
-                self.qc.reset(trg[i])
+                self.swap(trg[i], tmp_bit)
                 srcs_bits.append(tmp_bit)
 
-                self.qc.x(srcs_bits)
-                self.qc.x(trg[i])
-                self.qc.mcx(srcs_bits, trg[i])
-                self.qc.x(srcs_bits)
+                self.x(srcs_bits)
+                self.x(trg[i])
+                self.mcx(srcs_bits, trg[i])
+
+                srcs_bits.remove(tmp_bit)
+                self.x(srcs_bits)
 
                 self.drop_bit(tmp_bit)
         else:
@@ -377,12 +477,13 @@ class Compiler:
             for i in range(len(trg)):
                 srcs_bits: List[Qubit] = []
                 for src in srcs:
-                    srcs_bits.append(src[i])
+                    if len(src) > i:
+                        srcs_bits.append(src[i])
 
-                self.qc.x(srcs_bits)
-                self.qc.x(trg[i])
-                self.qc.mcx(srcs_bits, trg[i])
-                self.qc.x(srcs_bits)
+                self.x(srcs_bits)
+                self.x(trg[i])
+                self.mcx(srcs_bits, trg[i])
+                self.x(srcs_bits)
 
         return trg
 
