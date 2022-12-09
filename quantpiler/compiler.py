@@ -92,19 +92,22 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
 
 class Compiler:
     qc: QuantumCircuit = None
+    # TODO: variables lifetime calculation
     variables: Dict[str, QReg] = {}
+    arguments: Dict[str, QReg] = {}
     conditions: List[Qubit] = []
-    check_cond: bool = False
     ret: QReg = None
     bits: List[Qubit] = []
+    add_barriers: bool = True
 
     def __init__(self):
         self.qc = None
         self.variables = {}
+        self.arguments = {}
         self.conditions = []
-        self.check_cond = False
         self.ret = None
         self.bits = []
+        self.add_barriers = True
 
     def set_qc(self, qc: QuantumCircuit):
         self.qc = qc
@@ -116,7 +119,9 @@ class Compiler:
         # Create qreg for every function's argument
         args_vars = get_args_vars(func)
         for arg_name, arg_bitness in args_vars.items():
-            self.variables[arg_name] = self.create_reg(arg_bitness)
+            self.arguments[arg_name] = self.create_reg(arg_bitness)
+
+        self.variables = self.arguments.copy()
 
         # Compile function
         st = get_ast(func)
@@ -143,9 +148,18 @@ class Compiler:
                 raise NotImplementedError(f"Assign to multiple variables")
             var_name = instruction.targets[0].id
 
-            self.variables[var_name] = self.assemble_op(
-                instruction.value, check_cond=True
-            )
+            if var_name in self.variables:
+                old_var = self.variables[var_name]
+                new_var = self.assemble_op(instruction.value, target_var_name=var_name)
+
+                if old_var not in self.arguments.values():
+                    self.drop_unused_bits(new_var, old_var)
+
+            else:
+                new_var = self.assemble_op(instruction.value, target_var_name=var_name)
+
+            self.variables[var_name] = new_var
+
         # elif inst_type == ast.AnnAssign:
         #     var_name = instruction.target.id
         elif inst_type == ast.Return:
@@ -178,15 +192,44 @@ class Compiler:
         else:
             raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
-    def assemble_op(self, op: ast.AST, check_cond: bool = False) -> QReg:
-        def wrap_op_cond_check(call: Callable, args) -> QReg:
-            if check_cond:
-                self.check_cond = True
+    def assemble_op(
+        self,
+        op: ast.AST,
+        target_var_name: Union[str, None] = None,
+    ) -> QReg:
+        def wrap_op_cond_check(
+            call: Callable, sources: Union[List[QReg], QReg]
+        ) -> QReg:
+            if target_var_name and len(self.conditions):
+                if target_var_name in self.variables:
+                    # Save current qreg of target variable
+                    original_target = self.variables[target_var_name]
 
-            res = call(args)
+                    # Execute op if condition, empty reg if not condition
+                    res = call(sources)
 
-            if check_cond:
-                self.check_cond = False
+                    # Resize res to maximum size of res or original
+                    new_size = max(len(res), len(original_target))
+                    res = self.resize_reg(res, new_size)
+
+                    self.barrier()
+
+                    # Flip condition
+                    cond = self.conditions.pop()
+                    self.qc.x(cond)
+                    self.conditions.append(cond)
+
+                    self.assemble_copy(original_target, trg=res)
+
+                    # Flip condition
+                    cond = self.conditions.pop()
+                    self.qc.x(cond)
+                    self.conditions.append(cond)
+                else:
+                    res = call(sources)
+            else:
+                print(sources)
+                res = call(sources)
 
             return res
 
@@ -225,7 +268,7 @@ class Compiler:
         else:
             raise NotImplementedError(f"Unsupported operation: {op_type}")
 
-        self.qc.barrier()
+        self.barrier()
 
         return res
 
@@ -262,6 +305,18 @@ class Compiler:
 
     def drop_bit(self, bit: Qubit):
         self.bits.append(bit)
+
+    def drop_unused_bits(self, used_bits_reg: QReg, old_reg: QReg):
+        old_bits = []
+        for old_bit in old_reg:
+            old_bits.append(old_bit)
+
+        for used_bit in used_bits_reg:
+            if used_bit in old_bits:
+                old_bits.remove(used_bit)
+
+        for unused_bit in old_bits:
+            self.drop_bit(unused_bit)
 
     def create_reg(self, size: int) -> QReg:
         bits: List[Qubit] = []
@@ -350,12 +405,16 @@ class Compiler:
         self.qc.mcx(all_src_bits, trg)
         self.qc.x(all_src_bits)
 
-        self.qc.barrier()
+        self.barrier()
 
         return trg
 
+    def barrier(self):
+        if self.add_barriers:
+            self.qc.barrier()
+
     def x(self, trg):
-        if self.check_cond and len(self.conditions):
+        if len(self.conditions):
             cond = self.conditions.pop()
             self.qc.cx(cond, trg)
             self.conditions.append(cond)
@@ -363,7 +422,7 @@ class Compiler:
             self.qc.x(trg)
 
     def cx(self, src, trg):
-        if self.check_cond and len(self.conditions):
+        if len(self.conditions):
             cond = self.conditions.pop()
             self.qc.ccx(src, cond, trg)
             self.conditions.append(cond)
@@ -371,7 +430,7 @@ class Compiler:
             self.qc.cx(src, trg)
 
     def mcx(self, srcs, trg):
-        if self.check_cond and len(self.conditions):
+        if len(self.conditions):
             cond = self.conditions.pop()
             srcs = srcs.copy()
             srcs.append(cond)
@@ -381,12 +440,25 @@ class Compiler:
             self.qc.mcx(srcs, trg)
 
     def swap(self, trg1, trg2):
-        if self.check_cond and len(self.conditions):
+        if len(self.conditions):
             cond = self.conditions.pop()
             self.qc.cswap(cond, trg1, trg2)
             self.conditions.append(cond)
         else:
             self.qc.swap(trg1, trg2)
+
+    def assemble_copy(self, src: QReg, trg: Union[None, QReg] = None) -> QReg:
+        if trg:
+            for i in range(min(len(src), len(trg))):
+                if src[i] != trg[i]:
+                    self.cx(src[i], trg[i])
+        else:
+            trg = self.create_reg(len(src))
+            for i in range(len(src)):
+                if src[i] != trg[i]:
+                    self.cx(src[i], trg[i])
+
+        return trg
 
     def assemble_invert(self, src: QReg) -> QReg:
         if src.tmp:
@@ -404,6 +476,7 @@ class Compiler:
         max_tmp_src = self.get_max_tmp_src(srcs)
         if max_tmp_src:
             trg = self.resize_reg(max_tmp_src, len(self.get_max_reg(srcs)))
+            trg.tmp = False
             srcs.remove(max_tmp_src)
         else:
             trg = self.create_reg(len(self.get_max_reg(srcs)))
@@ -420,6 +493,7 @@ class Compiler:
         min_tmp_src = self.get_min_tmp_src(srcs)
         if min_tmp_src:
             trg = self.resize_reg(min_tmp_src, len(self.get_min_reg(srcs)))
+            trg.tmp = False
             srcs.remove(min_tmp_src)
 
             for i in range(len(trg)):
@@ -451,6 +525,7 @@ class Compiler:
         max_tmp_src = self.get_max_tmp_src(srcs)
         if max_tmp_src:
             trg = self.resize_reg(max_tmp_src, len(self.get_max_reg(srcs)))
+            trg.tmp = False
             srcs.remove(max_tmp_src)
 
             for i in range(len(trg)):
