@@ -12,6 +12,7 @@ from qiskit.circuit.quantumregister import Qubit, AncillaQubit
 from qiskit import QuantumRegister, AncillaRegister
 from qiskit.circuit import QuantumCircuit
 
+from . import utils
 from .qreg import QReg
 
 
@@ -197,16 +198,14 @@ class Compiler:
         op: ast.AST,
         target_var_name: Union[str, None] = None,
     ) -> QReg:
-        def wrap_op_cond_check(
-            call: Callable, sources: Union[List[QReg], QReg]
-        ) -> QReg:
+        def wrap_op_cond_check(call: Callable, *args) -> QReg:
             if target_var_name and len(self.conditions):
                 if target_var_name in self.variables:
                     # Save current qreg of target variable
                     original_target = self.variables[target_var_name]
 
                     # Execute op if condition, empty reg if not condition
-                    res = call(sources)
+                    res = call(*args)
 
                     # Resize res to maximum size of res or original
                     new_size = max(len(res), len(original_target))
@@ -228,8 +227,7 @@ class Compiler:
                 else:
                     res = call(sources)
             else:
-                print(sources)
-                res = call(sources)
+                res = call(*args)
 
             return res
 
@@ -237,6 +235,10 @@ class Compiler:
         if op_type == ast.Name:
             # TODO: check cond
             res = self.variables[op.id]
+
+        elif op_type == ast.Call:
+            # const loading
+            res = self.reg_from_const(op.args[0].value)
 
         elif op_type == ast.UnaryOp:
             source = self.value_to_reg(op.operand)
@@ -263,6 +265,14 @@ class Compiler:
                 sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitOr))
                 res = wrap_op_cond_check(self.assemble_bit_or, sources)
                 self.drop_tmp_regs(sources)
+            elif op_subtype == ast.LShift:
+                source = self.value_to_reg(op.left)
+                res = wrap_op_cond_check(self.assemble_lshift, source, op.right.value)
+                self.drop_tmp_reg(source)
+            elif op_subtype == ast.RShift:
+                source = self.value_to_reg(op.left)
+                res = wrap_op_cond_check(self.assemble_rshift, source, op.right.value)
+                self.drop_tmp_reg(source)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
         else:
@@ -325,6 +335,15 @@ class Compiler:
 
         reg = QReg(bits=bits)
         # reg.qc = self.qc
+        return reg
+
+    def reg_from_const(self, data: int) -> QReg:
+        data_bits = utils.uint_to_bits(data)
+        data_bits.reverse()
+        reg = self.create_reg(len(data_bits))
+        for i in range(len(data_bits)):
+            if data_bits[i]:
+                self.x(reg[i])
         return reg
 
     def destroy_reg(self, reg: QReg):
@@ -394,9 +413,6 @@ class Compiler:
 
         if prev:
             all_src_bits.append(prev)
-
-        print(all_src_bits)
-        print(trg)
 
         # all_src_bits = set(all_src_bits).
 
@@ -561,6 +577,33 @@ class Compiler:
                 self.x(srcs_bits)
 
         return trg
+
+    def assemble_lshift(self, src: QReg, distance: int) -> QReg:
+        if src.tmp:
+            src.tmp = False
+            bits = list(src)
+            for _ in range(distance):
+                bits.insert(0, self.get_bit())
+            res = QReg(bits=bits)
+        else:
+            res = self.create_reg(len(src) + distance)
+            for i in range(distance):
+                self.cx(src[i], res[i + distance])
+        return res
+
+    def assemble_rshift(self, src: QReg, distance: int) -> QReg:
+        if src.tmp:
+            # TODO: fix qubits leak
+            src.tmp = False
+            bits = list(src)
+            for _ in range(distance):
+                bits.pop(0)
+            res = QReg(bits=bits)
+        else:
+            res = self.create_reg(len(src) - distance)
+            for i in range(len(src) - distance):
+                self.cx(src[i + distance], res[i])
+        return res
 
 
 # def assemble(func: Callable) -> QuantumCircuit:
