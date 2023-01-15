@@ -28,6 +28,14 @@ def get_args_vars(func: Callable) -> Dict[str, int]:
 
 
 def get_return_size(func: Callable) -> int:
+    """Get the return size of the quantum function.
+
+    Args:
+        func (Callable): Quantum function.
+
+    Returns:
+        int: 0 if the function returns nothing, otherwise the return size.
+    """
     st = get_ast(func)
     try:
         return st.body[0].returns.value
@@ -36,25 +44,17 @@ def get_return_size(func: Callable) -> int:
 
 
 def get_ast(module) -> ast.AST:
+    """Get the AST of the python module.
+
+    Args:
+        module: Python module.
+
+    Returns:
+        ast.AST: The resulting AST.
+    """
     source = inspect.getsource(module)
     source = textwrap.dedent(source)
-    st = ast.parse(source)
-    return st
-
-
-def get_min_reg(*regs: QuantumRegister) -> int:
-    flat_regs: List[QuantumRegister] = []
-    for r in regs:
-        if type(r) == QuantumRegister:
-            flat_regs.append(r)
-        else:
-            flat_regs.extend(r)
-
-    sizes: List[int] = []
-    for reg in flat_regs:
-        sizes.append(len(reg))
-
-    return min(sizes)
+    return ast.parse(source)
 
 
 def get_used_vars(op: ast.AST) -> List[str]:
@@ -89,6 +89,58 @@ def unwrap_ops_chain(op: ast.AST, t: ast.AST) -> List[ast.AST]:
 
     unwrap_op(op, sources)
     return sources
+
+
+def get_tmp_regs(regs: List[QReg]) -> List[QReg]:
+    """Get all temporary registers from the given registers.
+
+    Args:
+        regs (List[QReg]): A list of registers in which to find temporary registers.
+
+    Returns:
+        List[QReg]: Temporary registers.
+    """
+    return [src for src in regs if src.tmp]
+
+
+def get_max_tmp_src(srcs: List[QReg]) -> Union[QReg, None]:
+    tmp_srcs = get_tmp_regs(srcs)
+    return get_max_reg(tmp_srcs)
+
+
+def get_min_tmp_src(srcs: List[QReg]) -> QReg:
+    tmp_srcs = get_tmp_regs(srcs)
+    return get_min_reg(tmp_srcs)
+
+
+def get_max_reg(regs: List[QReg]) -> Union[QReg, None]:
+    """Get the register with the maximum size.
+
+    Args:
+        regs (List[QReg]): Registers.
+
+    Returns:
+        Union[QReg, None]: The largest register if the regs is not empty and None otherwise.
+    """
+    if regs:
+        return max(regs, key=len)
+    else:
+        return None
+
+
+def get_min_reg(regs: List[QReg]) -> Union[QReg, None]:
+    """Get the register with the minimum size.
+
+    Args:
+        regs (List[QReg]): Registers.
+
+    Returns:
+        Union[QReg, None]: The smallest register if the regs is not empty and None otherwise.
+    """
+    if regs:
+        return min(regs, key=len)
+    else:
+        return None
 
 
 class Compiler:
@@ -147,90 +199,41 @@ class Compiler:
         if inst_type == ast.Assign:
             if len(instruction.targets) != 1:
                 raise NotImplementedError(f"Assign to multiple variables")
-            var_name = instruction.targets[0].id
 
-            if var_name in self.variables:
-                old_var = self.variables[var_name]
-                new_var = self.assemble_op(instruction.value, target_var_name=var_name)
+            target_var_name = instruction.targets[0].id
+
+            if target_var_name in self.variables:
+                old_var = self.variables[target_var_name]
+
+                if old_var not in self.arguments.values():
+                    old_var.tmp = True
+
+                new_var = self.assemble_op(instruction.value)
 
                 if old_var not in self.arguments.values():
                     self.drop_unused_bits(new_var, old_var)
 
             else:
-                new_var = self.assemble_op(instruction.value, target_var_name=var_name)
+                new_var = self.assemble_op(instruction.value)
 
-            self.variables[var_name] = new_var
+            self.variables[target_var_name] = new_var
 
-        # elif inst_type == ast.AnnAssign:
-        #     var_name = instruction.target.id
         elif inst_type == ast.Return:
             if type(instruction.value) == ast.Name:
                 self.ret = self.variables[instruction.value.id]
             else:
                 self.ret = self.assemble_op(instruction.value)
+
         elif inst_type == ast.If:
-            # Calculate bool bit from if's test
-            test_res = self.assemble_op(instruction.test)
+            self.assemble_if(instruction)
 
-            if len(self.conditions) == 0:
-                # If is is first if just add cond to conditions
-                cur_cond = self.assemble_to_bool(test_res)
-                self.conditions.append(cur_cond)
-            else:
-                # If there is already conditions calculate (past and current)
-                past_cond = self.conditions.pop()
-                res_cond = self.assemble_to_bool(test_res, prev=past_cond)
-                self.conditions.append(past_cond)
-                self.conditions.append(res_cond)
-
-            if type(instruction.test) != ast.Name:
-                self.destroy_reg(test_res)
-
-            self.assemble_instructions(instruction.body)
-
-            last_cond = self.conditions.pop()
-            self.drop_bit(last_cond)
         else:
             raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
     def assemble_op(
         self,
         op: ast.AST,
-        target_var_name: Union[str, None] = None,
     ) -> QReg:
-        def wrap_op_cond_check(call: Callable, *args) -> QReg:
-            if target_var_name and len(self.conditions):
-                if target_var_name in self.variables:
-                    # Save current qreg of target variable
-                    original_target = self.variables[target_var_name]
-
-                    # Execute op if condition, empty reg if not condition
-                    res = call(*args)
-
-                    # Resize res to maximum size of res or original
-                    new_size = max(len(res), len(original_target))
-                    res = self.resize_reg(res, new_size)
-
-                    self.barrier()
-
-                    # Flip condition
-                    cond = self.conditions.pop()
-                    self.qc.x(cond)
-                    self.conditions.append(cond)
-
-                    self.assemble_copy(original_target, trg=res)
-
-                    # Flip condition
-                    cond = self.conditions.pop()
-                    self.qc.x(cond)
-                    self.conditions.append(cond)
-                else:
-                    res = call(sources)
-            else:
-                res = call(*args)
-
-            return res
-
         op_type = type(op)
         if op_type == ast.Name:
             # TODO: check cond
@@ -241,11 +244,11 @@ class Compiler:
             res = self.reg_from_const(op.args[0].value)
 
         elif op_type == ast.UnaryOp:
-            source = self.value_to_reg(op.operand)
+            source = self.op_to_reg(op.operand)
 
             op_subtype = type(op.op)
             if op_subtype == ast.Invert:
-                res = wrap_op_cond_check(self.assemble_invert, source)
+                res = self.assemble_invert(source)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
 
@@ -254,24 +257,24 @@ class Compiler:
         elif op_type == ast.BinOp:
             op_subtype = type(op.op)
             if op_subtype == ast.BitXor:
-                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitXor))
-                res = wrap_op_cond_check(self.assemble_xor, sources)
+                sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitXor))
+                res = self.assemble_xor(sources)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitAnd:
-                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitAnd))
-                res = wrap_op_cond_check(self.assemble_bit_and, sources)
+                sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitAnd))
+                res = self.assemble_bit_and(sources)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitOr:
-                sources = self.values_to_regs(unwrap_ops_chain(op, ast.BitOr))
-                res = wrap_op_cond_check(self.assemble_bit_or, sources)
+                sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitOr))
+                res = self.assemble_bit_or(sources)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.LShift:
-                source = self.value_to_reg(op.left)
-                res = wrap_op_cond_check(self.assemble_lshift, source, op.right.value)
+                source = self.op_to_reg(op.left)
+                res = self.assemble_lshift(source, op.right.value)
                 self.drop_tmp_reg(source)
             elif op_subtype == ast.RShift:
-                source = self.value_to_reg(op.left)
-                res = wrap_op_cond_check(self.assemble_rshift, source, op.right.value)
+                source = self.op_to_reg(op.left)
+                res = self.assemble_rshift(source, op.right.value)
                 self.drop_tmp_reg(source)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
@@ -282,68 +285,134 @@ class Compiler:
 
         return res
 
-    def value_to_reg(self, value: ast.AST) -> QReg:
-        if type(value) == ast.Name:
-            return self.variables[value.id]
+    def assemble_if(self, inst: ast.If):
+        """Assemble ast.If operation.
+
+        Args:
+            inst (ast.If): Operation to assemble.
+        """
+        test_res = self.assemble_op(inst.test)
+
+        if self.conditions:
+            # If there is already conditions: calculate (past and current)
+            res_cond = self.assemble_to_bool(test_res, prev=self.conditions[-1])
+            self.conditions.append(res_cond)
         else:
-            reg = self.assemble_op(value)
+            # If is is first If op just add cond to conditions
+            cur_cond = self.assemble_to_bool(test_res)
+            self.conditions.append(cur_cond)
+
+        # Drop reg with test result
+        if type(inst.test) != ast.Name:
+            self.destroy_reg(test_res)
+
+        self.assemble_instructions(inst.body)
+
+        # Else
+        self.qc.x(self.conditions[-1])
+        self.assemble_instructions(inst.orelse)
+
+        last_cond = self.conditions.pop()
+        self.drop_bit(last_cond)
+
+    def op_to_reg(self, op: ast.AST) -> QReg:
+        """Perform an operation and return the resulting register.
+
+        Args:
+            op (ast.AST): AST operation to execute.
+
+        Returns:
+            QReg: Resulting register.
+        """
+        if type(op) == ast.Name:
+            return self.variables[op.id]
+        else:
+            reg = self.assemble_op(op)
             reg.tmp = True
             return reg
 
-    def values_to_regs(self, values: List[ast.AST]) -> List[QReg]:
-        regs: List[QReg] = []
+    def ops_to_regs(self, ops: List[ast.AST]) -> List[QReg]:
+        """Perform all operations and return a list of registers.
 
-        for val in values:
-            regs.append(self.value_to_reg(val))
+        Args:
+            ops (List[ast.AST]): List of AST operations to execute.
 
-        return regs
+        Returns:
+            List[QReg]: List of resulting registers.
+        """
+        return list(map(self.op_to_reg, ops))
 
-    def add_bit_to_qc(self, bit: Qubit):
-        reg = QuantumRegister(bits=[bit])
+    def create_bit(self) -> Qubit:
+        """Create qubit and add it to QuantumCircuit.
+
+        Returns:
+            Qubit: The created qubit.
+        """
+        reg = QuantumRegister(1)
         self.qc.add_register(reg)
-        # self.qc.add_bits([bit])
+        return reg[0]
 
     def get_bit(self) -> Qubit:
-        if len(self.bits) == 0:
-            bit = Qubit()
-            self.add_bit_to_qc(bit)
-            return bit
-        else:
+        """Return qubit in 0 state.
+
+        If an unused qubit exists, it will be returned, otherwise a new one will be created.
+
+        Returns:
+            Qubit: Qubit in 0 state.
+        """
+        if self.bits:
             bit = self.bits.pop()
             self.qc.reset(bit)
-            return bit
+        else:
+            bit = self.create_bit()
+        return bit
 
     def drop_bit(self, bit: Qubit):
+        """Add a qubit to the stack of unused qubits.
+
+        Args:
+            bit (Qubit): Unused qubit.
+        """
         self.bits.append(bit)
 
-    def drop_unused_bits(self, used_bits_reg: QReg, old_reg: QReg):
-        old_bits = []
-        for old_bit in old_reg:
-            old_bits.append(old_bit)
+    def drop_unused_bits(self, used_reg: QReg, unused_reg: QReg):
+        """Drop qubits that are in unused_reg but not in used_reg.
 
-        for used_bit in used_bits_reg:
-            if used_bit in old_bits:
-                old_bits.remove(used_bit)
-
-        for unused_bit in old_bits:
-            self.drop_bit(unused_bit)
+        Args:
+            used_reg (QReg): Register in use.
+            unused_reg (QReg): Unused register.
+        """
+        for unused_bit in unused_reg:
+            if unused_bit not in used_reg:
+                self.drop_bit(unused_bit)
 
     def create_reg(self, size: int) -> QReg:
-        bits: List[Qubit] = []
-        for _ in range(size):
-            bits.append(self.get_bit())
+        """Create register of given size.
 
-        reg = QReg(bits=bits)
-        # reg.qc = self.qc
-        return reg
+        Args:
+            size (int): Number of qubits in the register.
+
+        Returns:
+            QReg: Created register.
+        """
+        bits = [self.get_bit() for _ in range(size)]
+        return QReg(bits=bits)
 
     def reg_from_const(self, data: int) -> QReg:
+        """Create a register with the specified number.
+
+        Args:
+            data (int): Register value.
+
+        Returns:
+            QReg: Register with the specified number.
+        """
         data_bits = utils.uint_to_bits(data)
         data_bits.reverse()
         reg = self.create_reg(len(data_bits))
-        for i in range(len(data_bits)):
-            if data_bits[i]:
-                self.x(reg[i])
+        for reg_bit, data_bit in zip(reg, data_bits):
+            if data_bit:
+                self.x(reg_bit)
         return reg
 
     def destroy_reg(self, reg: QReg):
@@ -351,12 +420,25 @@ class Compiler:
             self.drop_bit(bit)
 
     def resize_reg(self, reg: QReg, size: int) -> QReg:
-        if size <= 0:
-            raise NotImplementedError("You are ananas")
+        """Resize register.
 
-        bits: List[Qubit] = []
-        for bit in reg:
-            bits.append(bit)
+        If the new size is larger than the current size, new qubits will be added to the end of the register.
+        If not, the extra qubits at the end of register will be removed.
+
+        Args:
+            reg (QReg): Register to resize.
+            size (int): The new register size.
+
+        Raises:
+            ValueError: Invalid arguments.
+
+        Returns:
+            QReg: The resized register.
+        """
+        if size <= 0:
+            raise ValueError("Size of register can't be 0 or lower.")
+
+        bits = list(reg)
 
         if size > len(reg):
             for _ in range(size - len(reg)):
@@ -370,6 +452,11 @@ class Compiler:
         return new_reg
 
     def drop_tmp_reg(self, reg: QReg):
+        """Drop a register if it is temporary.
+
+        Args:
+            reg (QReg): Register to check and drop.
+        """
         if reg.tmp:
             self.destroy_reg(reg)
 
@@ -377,55 +464,28 @@ class Compiler:
         for reg in regs:
             self.drop_tmp_reg(reg)
 
-    def get_tmp_srcs(self, srcs: List[QReg]) -> List[QReg]:
-        tmp_srcs: List[QReg] = []
-        for src in srcs:
-            if src.tmp:
-                tmp_srcs.append(src)
-        return tmp_srcs
-
-    def get_max_tmp_src(self, srcs: List[QReg]) -> Union[QReg, None]:
-        tmp_srcs = self.get_tmp_srcs(srcs)
-        return self.get_max_reg(tmp_srcs)
-
-    def get_min_tmp_src(self, srcs: List[QReg]) -> QReg:
-        tmp_srcs = self.get_tmp_srcs(srcs)
-        return self.get_min_reg(tmp_srcs)
-
-    def get_max_reg(self, regs: List[QReg]) -> Union[QReg, None]:
-        if len(regs) == 0:
-            return None
-        else:
-            return max(regs, key=len)
-
-    def get_min_reg(self, regs: List[QReg]) -> Union[QReg, None]:
-        if len(regs) == 0:
-            return None
-        else:
-            return min(regs, key=len)
-
     def assemble_to_bool(self, src: QReg, prev: Qubit = None) -> Qubit:
-        trg = self.get_bit()
+        if len(src) > 1:
+            trg = self.get_bit()
 
-        all_src_bits: List[Qubit] = []
-        for bit in src:
-            all_src_bits.append(bit)
+            all_src_bits = list(src)
 
-        if prev:
-            all_src_bits.append(prev)
+            if prev:
+                all_src_bits.append(prev)
 
-        # all_src_bits = set(all_src_bits).
+            self.qc.x(all_src_bits)
+            self.qc.x(trg)
+            self.qc.mcx(all_src_bits, trg)
+            self.qc.x(all_src_bits)
 
-        self.qc.x(all_src_bits)
-        self.qc.x(trg)
-        self.qc.mcx(all_src_bits, trg)
-        self.qc.x(all_src_bits)
+            self.barrier()
 
-        self.barrier()
-
-        return trg
+            return trg
+        else:
+            return src[0]
 
     def barrier(self):
+        """Adds a barrier to the circuit if they are enabled."""
         if self.add_barriers:
             self.qc.barrier()
 
@@ -476,46 +536,79 @@ class Compiler:
 
         return trg
 
-    def assemble_invert(self, src: QReg) -> QReg:
+    def assemble_invert(self, src: QReg, limit: int = float("inf")) -> QReg:
+        """Invert register.
+
+        This will flip all the qubits in the register.
+
+        Args:
+            src (QReg): Register to invert.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Inverted register.
+        """
         if src.tmp:
             src.tmp = False
-            self.x(src)
+            if limit >= len(src):
+                self.x(src)
+            else:
+                src = self.resize_reg(src, limit)
+                self.x(src)
             return src
         else:
-            trg = self.create_reg(len(src))
+            trg = self.create_reg(min(len(src), limit))
             self.x(trg)
-            for i in range(len(src)):
-                self.cx(src[i], trg[i])
+            for src_bit, trg_bit in zip(src, trg):
+                self.cx(src_bit, trg_bit)
             return trg
 
-    def assemble_xor(self, srcs: List[QReg]) -> QReg:
-        max_tmp_src = self.get_max_tmp_src(srcs)
+    def assemble_xor(self, srcs: List[QReg], limit: int = float("inf")) -> QReg:
+        """Calculate XOR of registers.
+
+        Args:
+            srcs (List[QReg]): List of input registers.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Register with result.
+        """
+        limit = min(limit, len(get_max_reg(srcs)))
+
+        max_tmp_src = get_max_tmp_src(srcs)
         if max_tmp_src:
-            trg = self.resize_reg(max_tmp_src, len(self.get_max_reg(srcs)))
+            trg = self.resize_reg(max_tmp_src, limit)
             trg.tmp = False
             srcs.remove(max_tmp_src)
         else:
-            trg = self.create_reg(len(self.get_max_reg(srcs)))
-            pass
+            trg = self.create_reg(limit)
 
         for src in srcs:
-            for i in range(min(len(src), len(trg))):
-                self.cx(src[i], trg[i])
-                pass
+            for src_bit, trg_bit in zip(src, trg):
+                self.cx(src_bit, trg_bit)
 
         return trg
 
-    def assemble_bit_and(self, srcs: List[QReg]) -> QReg:
-        min_tmp_src = self.get_min_tmp_src(srcs)
+    def assemble_bit_and(self, srcs: List[QReg], limit: int = float("inf")) -> QReg:
+        """Calculate AND of registers.
+
+        Args:
+            srcs (List[QReg]): List of input registers.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Register with result.
+        """
+        limit = min(limit, len(get_min_reg(srcs)))
+
+        min_tmp_src = get_min_tmp_src(srcs)
         if min_tmp_src:
-            trg = self.resize_reg(min_tmp_src, len(self.get_min_reg(srcs)))
+            trg = self.resize_reg(min_tmp_src, limit)
             trg.tmp = False
             srcs.remove(min_tmp_src)
 
-            for i in range(len(trg)):
-                srcs_bits: List[Qubit] = []
-                for src in srcs:
-                    srcs_bits.append(src[i])
+            for i in range(limit):
+                srcs_bits = [src[i] for src in srcs]
 
                 tmp_bit = self.get_bit()
                 self.swap(trg[i], tmp_bit)
@@ -525,30 +618,36 @@ class Compiler:
 
                 self.drop_bit(tmp_bit)
         else:
-            trg = self.create_reg(len(self.get_min_reg(srcs)))
+            trg = self.create_reg(limit)
 
-            for i in range(len(trg)):
-                srcs_bits: List[Qubit] = []
-                for src in srcs:
-                    srcs_bits.append(src[i])
+            for i in range(limit):
+                srcs_bits = [src[i] for src in srcs]
 
                 self.mcx(srcs_bits, trg[i])
 
         return trg
 
     # TODO: refactor so srcs_bits will be created once
-    def assemble_bit_or(self, srcs: List[QReg]) -> QReg:
-        max_tmp_src = self.get_max_tmp_src(srcs)
+    def assemble_bit_or(self, srcs: List[QReg], limit: int = float("inf")) -> QReg:
+        """Calculate OR of registers.
+
+        Args:
+            srcs (List[QReg]): List of input registers.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Register with result.
+        """
+        limit = min(limit, len(get_max_reg(srcs)))
+
+        max_tmp_src = get_max_tmp_src(srcs)
         if max_tmp_src:
-            trg = self.resize_reg(max_tmp_src, len(self.get_max_reg(srcs)))
+            trg = self.resize_reg(max_tmp_src, limit)
             trg.tmp = False
             srcs.remove(max_tmp_src)
 
-            for i in range(len(trg)):
-                srcs_bits: List[Qubit] = []
-                for src in srcs:
-
-                    srcs_bits.append(src[i])
+            for i in range(limit):
+                srcs_bits = [src[i] for src in srcs]
 
                 tmp_bit = self.get_bit()
                 self.swap(trg[i], tmp_bit)
@@ -563,13 +662,10 @@ class Compiler:
 
                 self.drop_bit(tmp_bit)
         else:
-            trg = self.create_reg(len(self.get_max_reg(srcs)))
+            trg = self.create_reg(limit)
 
-            for i in range(len(trg)):
-                srcs_bits: List[Qubit] = []
-                for src in srcs:
-                    if len(src) > i:
-                        srcs_bits.append(src[i])
+            for i in range(limit):
+                srcs_bits = [src[i] for src in srcs]
 
                 self.x(srcs_bits)
                 self.x(trg[i])
@@ -578,54 +674,72 @@ class Compiler:
 
         return trg
 
-    def assemble_lshift(self, src: QReg, distance: int) -> QReg:
+    def assemble_lshift(
+        self, src: QReg, distance: int, limit: int = float("inf")
+    ) -> QReg:
+        """Calculate LShift of register.
+
+        Add distance bits at the beginng and drop bits over limit at the end.
+
+        Args:
+            src (QReg): Input register.
+            distance (int): Shift distance.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Register with result.
+        """
+        limit = min(limit, len(src) + distance)
+
         if src.tmp:
             src.tmp = False
             bits = list(src)
+
+            # Add new bits to the beginning
             for _ in range(distance):
                 bits.insert(0, self.get_bit())
+
+            # Drop bits at the end
+            for _ in range(len(bits) - limit):
+                self.drop_bit(bits.pop())
+
             res = QReg(bits=bits)
         else:
-            res = self.create_reg(len(src) + distance)
-            for i in range(distance):
+            res = self.create_reg(limit)
+            for i in range(limit - distance):
                 self.cx(src[i], res[i + distance])
+
         return res
 
-    def assemble_rshift(self, src: QReg, distance: int) -> QReg:
+    def assemble_rshift(
+        self, src: QReg, distance: int, limit: int = float("inf")
+    ) -> QReg:
+        """Calculate RShift of register.
+
+        Args:
+            src (QReg): Input register.
+            distance (int): Shift distance.
+            limit (int, optional): Result size limit. Defaults to float("inf").
+
+        Returns:
+            QReg: Register with result.
+        """
+        limit = min(len(src) - distance, limit)
+
         if src.tmp:
-            # TODO: fix qubits leak
             src.tmp = False
             bits = list(src)
+
             for _ in range(distance):
-                bits.pop(0)
+                self.drop_bit(bits.pop(0))
+
+            for _ in range(len(bits) - limit):
+                self.drop_bit(bits.pop())
+
             res = QReg(bits=bits)
         else:
-            res = self.create_reg(len(src) - distance)
-            for i in range(len(src) - distance):
+            res = self.create_reg(limit)
+            for i in range(limit):
                 self.cx(src[i + distance], res[i])
+
         return res
-
-
-# def assemble(func: Callable) -> QuantumCircuit:
-#     """Compile python function to qiskit circuit.
-
-#     Args:
-#         func (Callable): Function to compile.
-
-#     Raises:
-#         NotImplementedError: Some of used operations aren't supported yet.
-
-#     Returns:
-#         QuantumCircuit: Compiled circuit.
-#     """
-
-#     variables: Dict[str, QuantumRegister] = {}
-#     ancillas: List[AncillaQubit] = []
-
-#     args_vars = get_args_vars(func)
-#     for arg_name, arg_bitness in args_vars.items():
-#         variables[arg_name] = QuantumRegister(arg_bitness, name=arg_name)
-
-#     qc = QuantumCircuit(*variables.values(), name=func.__name__)
-
-#     return qc

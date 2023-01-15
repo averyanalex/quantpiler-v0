@@ -109,6 +109,6 @@ def compile_execute(func: Callable, args: Dict[str, int] = {}) -> Union[None, in
 
     qasm_sim = BasicAer.get_backend("qasm_simulator")
     result = execute(qc, backend=qasm_sim, shots=1).result()
-    answer = result.get_counts()
+    answer = list(result.get_counts().keys())[0]
 
     return answer
