@@ -5,7 +5,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs";
     poetry2nix = {
-      url = "github:averyanalex/poetry2nix";
+      url = "github:nix-community/poetry2nix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
@@ -25,20 +25,6 @@
           preferWheels = true;
           python = python;
           groups = [ "dev" "docs" "jupyter" ];
-          overrides = pkgs.poetry2nix.overrides.withDefaults (
-            self: super: {
-              nbconvert = super.nbconvert.overrideAttrs (
-                old: {
-                  postPatch = "";
-                }
-              );
-              notebook = super.notebook.overrideAttrs (
-                old: {
-                  meta.priority = 200;
-                }
-              );
-            }
-          );
           editablePackageSources = {
             quantpiler = ./quantpiler;
           };
