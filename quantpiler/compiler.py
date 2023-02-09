@@ -202,10 +202,13 @@ class Compiler:
 
             target_var_name = instruction.targets[0].id
 
+            # If we update variable value
             if target_var_name in self.variables:
                 old_var = self.variables[target_var_name]
 
                 if old_var not in self.arguments.values():
+                    # If variable is not function argument,
+                    # we will drop its original value
                     old_var.tmp = True
 
                 new_var = self.assemble_op(instruction.value)
@@ -213,8 +216,36 @@ class Compiler:
                 if old_var not in self.arguments.values():
                     self.drop_unused_bits(new_var, old_var)
 
+            # If we just defining new variable
             else:
                 new_var = self.assemble_op(instruction.value)
+
+            self.variables[target_var_name] = new_var
+
+        elif inst_type == ast.AnnAssign:
+            target_var_name = instruction.target
+
+            # If we update variable value
+            if target_var_name in self.variables:
+                old_var = self.variables[target_var_name]
+
+                if old_var not in self.arguments.values():
+                    # If variable is not function argument,
+                    # we will drop its original value
+                    old_var.tmp = True
+
+                new_var = self.assemble_op(
+                    instruction.value, limit=instruction.annotation.value
+                )
+
+                if old_var not in self.arguments.values():
+                    self.drop_unused_bits(new_var, old_var)
+
+            # If we just defining new variable
+            else:
+                new_var = self.assemble_op(
+                    instruction.value, limit=instruction.annotation.value
+                )
 
             self.variables[target_var_name] = new_var
 
@@ -230,10 +261,7 @@ class Compiler:
         else:
             raise NotImplementedError(f"Unsupported top-level operation: {inst_type}")
 
-    def assemble_op(
-        self,
-        op: ast.AST,
-    ) -> QReg:
+    def assemble_op(self, op: ast.AST, limit: int = float("inf")) -> QReg:
         op_type = type(op)
         if op_type == ast.Name:
             # TODO: check cond
@@ -248,7 +276,7 @@ class Compiler:
 
             op_subtype = type(op.op)
             if op_subtype == ast.Invert:
-                res = self.assemble_invert(source)
+                res = self.assemble_invert(source, limit=limit)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
 
@@ -258,23 +286,23 @@ class Compiler:
             op_subtype = type(op.op)
             if op_subtype == ast.BitXor:
                 sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitXor))
-                res = self.assemble_xor(sources)
+                res = self.assemble_xor(sources, limit=limit)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitAnd:
                 sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitAnd))
-                res = self.assemble_bit_and(sources)
+                res = self.assemble_bit_and(sources, limit=limit)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.BitOr:
                 sources = self.ops_to_regs(unwrap_ops_chain(op, ast.BitOr))
-                res = self.assemble_bit_or(sources)
+                res = self.assemble_bit_or(sources, limit=limit)
                 self.drop_tmp_regs(sources)
             elif op_subtype == ast.LShift:
                 source = self.op_to_reg(op.left)
-                res = self.assemble_lshift(source, op.right.value)
+                res = self.assemble_lshift(source, op.right.value, limit=limit)
                 self.drop_tmp_reg(source)
             elif op_subtype == ast.RShift:
                 source = self.op_to_reg(op.left)
-                res = self.assemble_rshift(source, op.right.value)
+                res = self.assemble_rshift(source, op.right.value, limit=limit)
                 self.drop_tmp_reg(source)
             else:
                 raise NotImplementedError(f"Unsupported op {op_subtype} of {op_type}")
