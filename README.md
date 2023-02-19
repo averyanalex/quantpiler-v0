@@ -5,8 +5,7 @@
 
 # Quantpiler
 
-This library was created to simplify the development of complex quantum algorithms by
-auto-generating common circuits and compiling python functions.
+A compiler from Python functions to quantum oracles for use, for example, in Grover's algorithm.
 
 Documentation: [https://quantpiler.readthedocs.io/en/latest/index.html](https://quantpiler.readthedocs.io/en/latest/index.html)
 
@@ -14,4 +13,6 @@ Usage examples: [https://quantpiler.readthedocs.io/en/latest/examples/index.html
 
 # Compiler
 
-Registers are big-endian
+Features:
+- Registers are big-endian.
+- Registers can be of any size.
