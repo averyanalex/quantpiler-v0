@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "quantpiler"
 version = "0.2.0"
-description = "Quantum compiler and common circuits library"
+description = "Compiler of Python functions into quantum oracles."
 license = "Apache-2.0"
 authors = ["AveryanAlex <alex@averyan.ru>"]
 readme = "README.md"
@@ -10,7 +10,7 @@ repository = "https://github.com/averyanalex/quantpiler"
 documentation = "https://quantpiler.readthedocs.io/en/latest/"
 keywords = ["qiskit", "quantum"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: Microsoft :: Windows",
