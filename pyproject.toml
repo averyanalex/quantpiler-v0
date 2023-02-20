@@ -35,7 +35,7 @@ optional = true
 
 [tool.poetry.group.jupyter.dependencies]
 jupyterlab = "^3.6"
-matplotlib = "^3.6"
+matplotlib = "^3.7"
 pylatexenc = "^2.10"
 
 [tool.poetry.group.docs]
