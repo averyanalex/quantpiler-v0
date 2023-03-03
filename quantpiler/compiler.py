@@ -223,7 +223,7 @@ class Compiler:
             self.variables[target_var_name] = new_var
 
         elif inst_type == ast.AnnAssign:
-            target_var_name = instruction.target
+            target_var_name = instruction.target.id
 
             # If we update variable value
             if target_var_name in self.variables:
