@@ -1773,14 +1773,14 @@ test = ["pep440", "pre-commit", "pytest", "testpath"]
 
 [[package]]
 name = "nbsphinx"
-version = "0.8.12"
+version = "0.9.0"
 description = "Jupyter Notebook Tools for Sphinx"
 category = "dev"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "nbsphinx-0.8.12-py3-none-any.whl", hash = "sha256:c15b681c7fce287000856f91fe1edac50d29f7b0c15bbc746fbe55c8eb84750b"},
-    {file = "nbsphinx-0.8.12.tar.gz", hash = "sha256:76570416cdecbeb21dbf5c3d6aa204ced6c1dd7ebef4077b5c21b8c6ece9533f"},
+    {file = "nbsphinx-0.9.0-py3-none-any.whl", hash = "sha256:09d578cf2dfe38ed8caf680d8b6b66aa2da475f8e2daff3a14757b3df5631752"},
+    {file = "nbsphinx-0.9.0.tar.gz", hash = "sha256:996d09770b5aee2a9aba4dc690e2eff2380aab7b57a8b954fab70d067a8a6e55"},
 ]
 
 [package.dependencies]
@@ -3637,4 +3637,4 @@ test = ["mypy", "pre-commit", "pytest", "pytest-asyncio", "websockets (>=10.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "e87d3c78f87f71477e7743f0bb799f567913176b5735a969811275134e18e6a4"
+content-hash = "1a0ceef696fd7868e7a4be5e89f4e5316a6cfc68b7a2228644fc3aca044bde34"
