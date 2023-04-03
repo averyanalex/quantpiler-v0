@@ -21,7 +21,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-qiskit = "^0.41"
+qiskit = "^0.42"
 
 [tool.poetry.group.dev.dependencies]
 black = { extras = ["jupyter"], version = "^23" }

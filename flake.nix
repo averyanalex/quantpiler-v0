@@ -14,21 +14,20 @@
   outputs = { self, nixpkgs, flake-utils, poetry2nix }:
     (flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ poetry2nix.overlay ];
-        };
-        python = pkgs.python310;
+        inherit (poetry2nix.legacyPackages.${system}) mkPoetryEnv;
+        pkgs = nixpkgs.legacyPackages.${system};
+        python = pkgs.python3;
 
-        poetryEnv = pkgs.poetry2nix.mkPoetryEnv {
-          projectDir = ./.;
+        poetryCommon = {
+          inherit python;
+          projectDir = self;
           preferWheels = true;
-          python = python;
           groups = [ "dev" "docs" "jupyter" ];
           editablePackageSources = {
             quantpiler = ./quantpiler;
           };
         };
+        poetryEnv = mkPoetryEnv poetryCommon;
       in
       {
         devShells.default = poetryEnv.env.overrideAttrs (oldAttrs: {
