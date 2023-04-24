@@ -42,7 +42,7 @@ pylatexenc = "^2.10"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-sphinx = "^6.1"
+sphinx = "^6.2"
 furo = "^2022.12.7"
 nbsphinx = "^0.9"
 ipython = "^8"
