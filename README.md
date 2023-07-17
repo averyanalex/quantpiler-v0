@@ -5,6 +5,8 @@
 
 # Quantpiler
 
+# DEPRECATED: new, rust-powered version [here](https://github.com/averyanalex/quantpiler)
+
 A compiler from Python functions to quantum oracles for use, for example, in Grover's algorithm.
 
 Documentation: [https://quantpiler.readthedocs.io/en/latest/index.html](https://quantpiler.readthedocs.io/en/latest/index.html)
